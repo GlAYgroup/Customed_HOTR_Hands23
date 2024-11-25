@@ -1,0 +1,300 @@
+wandb_version: 1
+
+lr:
+  desc: null
+  value: 0.0001
+lr_backbone:
+  desc: null
+  value: 1.0e-05
+batch_size:
+  desc: null
+  value: 8
+weight_decay:
+  desc: null
+  value: 0.0001
+epochs:
+  desc: null
+  value: 300
+lr_drop:
+  desc: null
+  value: 80
+clip_max_norm:
+  desc: null
+  value: 0.1
+check:
+  desc: null
+  value: false
+check_num_images:
+  desc: null
+  value: -1
+task:
+  desc: null
+  value: ASOD
+vis_mode:
+  desc: null
+  value: all
+root:
+  desc: null
+  value: null
+frozen_weights:
+  desc: null
+  value: resume/hands23/gpu_hands23_multi_hand_run_000001/checkpoint0299.pth
+backbone:
+  desc: null
+  value: resnet50
+dilation:
+  desc: null
+  value: false
+position_embedding:
+  desc: null
+  value: sine
+enc_layers:
+  desc: null
+  value: 6
+dec_layers:
+  desc: null
+  value: 6
+dim_feedforward:
+  desc: null
+  value: 2048
+hidden_dim:
+  desc: null
+  value: 256
+dropout:
+  desc: null
+  value: 0.1
+nheads:
+  desc: null
+  value: 8
+num_queries:
+  desc: null
+  value: 100
+pre_norm:
+  desc: null
+  value: false
+masks:
+  desc: null
+  value: false
+aux_loss:
+  desc: null
+  value: false
+mask_loss_coef:
+  desc: null
+  value: 1
+dice_loss_coef:
+  desc: null
+  value: 1
+bbox_loss_coef:
+  desc: null
+  value: 5
+giou_loss_coef:
+  desc: null
+  value: 2
+eos_coef:
+  desc: null
+  value: 0.1
+set_cost_class:
+  desc: null
+  value: 1
+set_cost_bbox:
+  desc: null
+  value: 5
+set_cost_giou:
+  desc: null
+  value: 2
+HOIDet:
+  desc: null
+  value: true
+share_enc:
+  desc: null
+  value: true
+pretrained_dec:
+  desc: null
+  value: true
+hoi_enc_layers:
+  desc: null
+  value: 6
+hoi_dec_layers:
+  desc: null
+  value: 6
+hoi_nheads:
+  desc: null
+  value: 8
+hoi_dim_feedforward:
+  desc: null
+  value: 2048
+num_hoi_queries:
+  desc: null
+  value: 10
+hoi_aux_loss:
+  desc: null
+  value: true
+set_cost_idx:
+  desc: null
+  value: 10.0
+set_cost_act:
+  desc: null
+  value: 1.0
+set_cost_tgt:
+  desc: null
+  value: 1
+set_cost_soidx:
+  desc: null
+  value: 10.0
+temperature:
+  desc: null
+  value: 0.05
+hoi_idx_loss_coef:
+  desc: null
+  value: 1.0
+hoi_act_loss_coef:
+  desc: null
+  value: 10.0
+hoi_tgt_loss_coef:
+  desc: null
+  value: 1
+hoi_eos_coef:
+  desc: null
+  value: 0.1
+hoi_soidx_loss_coef:
+  desc: null
+  value: 1.0
+dataset_file:
+  desc: null
+  value: hands23
+data_path:
+  desc: null
+  value: hands23
+object_threshold:
+  desc: null
+  value: 0
+hand_threshold:
+  desc: null
+  value: 0
+second_object_threshold:
+  desc: null
+  value: 0
+output_dir:
+  desc: null
+  value: checkpoints/hands23//SatoLab_HOTR/hands23_multi_hand_run_000001/
+custom_path:
+  desc: null
+  value: ''
+device:
+  desc: null
+  value: cuda
+seed:
+  desc: null
+  value: 42
+resume:
+  desc: null
+  value: ''
+start_epoch:
+  desc: null
+  value: 0
+num_workers:
+  desc: null
+  value: 2
+eval:
+  desc: null
+  value: false
+validate:
+  desc: null
+  value: true
+vis:
+  desc: null
+  value: false
+world_size:
+  desc: null
+  value: 2
+dist_url:
+  desc: null
+  value: env://
+wandb:
+  desc: null
+  value: true
+project_name:
+  desc: null
+  value: HOTR
+group_name:
+  desc: null
+  value: SatoLab_HOTR
+run_name:
+  desc: null
+  value: hands23_multi_hand_run_000001
+rank:
+  desc: null
+  value: 0
+gpu:
+  desc: null
+  value: 0
+distributed:
+  desc: null
+  value: true
+dist_backend:
+  desc: null
+  value: nccl
+num_classes:
+  desc: null
+  value: 3
+num_actions:
+  desc: null
+  value: 3
+action_names:
+  desc: null
+  value:
+  - Hand
+  - Hand_Active
+  - Hand_Active_Second
+valid_ids:
+  desc: null
+  value:
+  - 0
+  - 1
+  - 2
+invalid_ids:
+  desc: null
+  value: []
+human_actions:
+  desc: null
+  value:
+  - Hand
+  - Hand_Active
+  - Hand_Active_Second
+object_actions:
+  desc: null
+  value:
+  - Hand
+  - Hand_Active
+  - Hand_Active_Second
+num_human_act:
+  desc: null
+  value: 3
+_wandb:
+  desc: null
+  value:
+    python_version: 3.8.8
+    cli_version: 0.16.1
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1732530554.936897
+    t:
+      1:
+      - 1
+      - 41
+      - 55
+      2:
+      - 1
+      - 41
+      - 55
+      3:
+      - 1
+      - 13
+      - 16
+      - 23
+      4: 3.8.8
+      5: 0.16.1
+      8:
+      - 5
+      13: linux-x86_64

@@ -1,0 +1,20 @@
+
+>>> Epoch #1
+Traceback (most recent call last):
+  File "main.py", line 483, in <module>
+    main(args)
+  File "main.py", line 386, in main
+    train_stats = train_one_epoch(
+  File "/workspace/hotr/engine/trainer.py", line 48, in train_one_epoch
+    loss_dict = criterion(outputs, targets, log)
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/workspace/hotr/models/criterion.py", line 300, in forward
+    hoi_indices, hoi_targets = self.HOI_matcher(outputs_without_aux, input_targets, indices, log)
+  File "/opt/conda/lib/python3.8/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/opt/conda/lib/python3.8/site-packages/torch/autograd/grad_mode.py", line 27, in decorate_context
+    return func(*args, **kwargs)
+  File "/workspace/hotr/models/hotr_matcher.py", line 320, in forward
+    log_dict['so_cost'].append(so_cost.min(dim=0)[0].mean())
+KeyError: 'so_cost'

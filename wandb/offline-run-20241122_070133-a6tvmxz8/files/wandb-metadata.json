@@ -1,0 +1,272 @@
+{
+    "os": "Linux-5.4.0-169-generic-x86_64-with-glibc2.10",
+    "python": "3.8.8",
+    "heartbeatAt": "2024-11-22T07:01:33.806533",
+    "startedAt": "2024-11-22T07:01:33.725382",
+    "docker": null,
+    "cuda": null,
+    "args": [
+        "--task",
+        "ASOD",
+        "--group_name",
+        "SatoLab_HOTR",
+        "--run_name",
+        "hands23_multi_hand_run_000001",
+        "--HOIDet",
+        "--wandb",
+        "--validate",
+        "--share_enc",
+        "--pretrained_dec",
+        "--lr",
+        "1e-4",
+        "--epochs",
+        "300",
+        "--num_hoi_queries",
+        "10",
+        "--set_cost_idx",
+        "10",
+        "--set_cost_soidx",
+        "10",
+        "--set_cost_act",
+        "1",
+        "--hoi_idx_loss_coef",
+        "1",
+        "--hoi_soidx_loss_coef",
+        "1",
+        "--hoi_act_loss_coef",
+        "10",
+        "--hoi_eos_coef",
+        "0.1",
+        "--temperature",
+        "0.05",
+        "--no_aux_loss",
+        "--hoi_aux_loss",
+        "--dataset_file",
+        "hands23",
+        "--frozen_weights",
+        "resume/hands23/gpu_hands23_multi_hand_run_000001/checkpoint0299.pth",
+        "--data_path",
+        "hands23",
+        "--output_dir",
+        "checkpoints/hands23/",
+        "--check",
+        "True"
+    ],
+    "state": "running",
+    "program": "main.py",
+    "codePathLocal": "main.py",
+    "codePath": "main.py",
+    "host": "4e174586c4b3",
+    "username": "root",
+    "executable": "/opt/conda/bin/python",
+    "cpu_count": 36,
+    "cpu_count_logical": 36,
+    "cpu_freq": {
+        "current": 2400.0249999999996,
+        "min": 0.0,
+        "max": 0.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        },
+        {
+            "current": 2400.025,
+            "min": 0.0,
+            "max": 0.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 57.72444534301758,
+            "used": 52.508487701416016
+        }
+    },
+    "gpu": "NVIDIA A100-SXM4-40GB",
+    "gpu_count": 2,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA A100-SXM4-40GB",
+            "memory_total": 42949672960
+        },
+        {
+            "name": "NVIDIA A100-SXM4-40GB",
+            "memory_total": 42949672960
+        }
+    ],
+    "memory": {
+        "total": 113.19196319580078
+    }
+}
