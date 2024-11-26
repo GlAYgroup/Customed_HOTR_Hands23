@@ -28,7 +28,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     header = 'Epoch [{start_epoch: >{fill}}/{end_epoch}]'.format(start_epoch=epoch+1, end_epoch=max_epoch, fill=space_fmt)
     print_freq = int(len(data_loader)/1)
     if len(data_loader) >= 1000:
-        print_freq = int(len(data_loader)/80)
+        print_freq = int(len(data_loader)/2)
 
     #pair_target の作成：ここでは、物体ID（o_id）に基づいて、物体のカテゴリー（o_cat）を取得し、それを pair_target に追加します。
     #物体IDが -1（つまり背景）の場合は、物体カテゴリーを -1（背景）としています。

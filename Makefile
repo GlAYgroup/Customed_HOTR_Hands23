@@ -5,8 +5,8 @@ hands23_multi_train:
 		--use_env main.py \
 		--task ASOD \
 		--group_name SatoLab_HOTR \
-		--run_name hands23_multi_hand_run_000001 \
-		--batch_size 32 \
+		--run_name hands23_multi_hand_run_000002 \
+		--batch_size 2 \
 		--HOIDet \
 		--wandb \
 		--validate \
@@ -14,7 +14,7 @@ hands23_multi_train:
 		--pretrained_dec \
 		--lr 1e-4 \
 		--epochs 300 \
-		--num_hoi_queries 10 \
+		--num_hoi_queries 6 \
 		--set_cost_idx 10 \
 		--set_cost_soidx 10 \
 		--set_cost_act 1 \
@@ -120,14 +120,14 @@ hands23_single_train_check:
 	python main.py \
 		--task ASOD \
 		--group_name SatoLab_HOTR \
-		--run_name hands23_single_hand_run_000009 \
-		--batch_size 8 \
+		--run_name hands23_single_hand_run_000010 \
+		--batch_size 2 \
 		--HOIDet \
 		--validate \
 		--share_enc \
 		--pretrained_dec \
 		--lr 1e-4 \
-		--epochs 3 \
+		--epochs 10 \
 		--num_hoi_queries 6 \
 		--set_cost_idx 10 \
 		--set_cost_soidx 10 \
@@ -145,22 +145,21 @@ hands23_single_train_check:
 		--output_dir checkpoints/check/hands23 \
 		--check True \
 	   
-#frozen_weightsを変更する必要あり
 hands23_single_test:
 	python main.py \
 		--task ASOD \
-		--resume checkpoints/hands23/SatoLab_HOTR/hands23_single_hand_run_000001/checkpoint.pth \
-		--run_name hands23_single_hand_run_000001 \
-		--second_object_threshold 0.2 \
+		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000001/checkpoint.pth \
+		--run_name gpu_hands23_multi_hand_run_000001 \
 		--root hands23/hands23_data/allMergedBlur \
 		--vis_mode unique_obj \
 		--group_name SatoLab_HOTR \
 		--HOIDet \
 		--share_enc \
 		--pretrained_dec \
-		--num_hoi_queries 6 \
-		--hand_threshold 0.6 \
-		--object_threshold 0.2 \
+		--num_hoi_queries 10 \
+		--hand_threshold 0.7 \
+		--object_threshold 0.5 \
+		--second_object_threshold 0.3 \
 		--temperature 0.05 \
 		--no_aux_loss \
 		--eval \
@@ -297,6 +296,7 @@ doh_single_test:
 
 doh_single_test_check:
 	python main.py \
+		--task AOD \
 		--group_name SatoLab_HOTR \
 		--run_name doh_single_hand_run_000001 \
 		--HOIDet \
@@ -304,7 +304,7 @@ doh_single_test_check:
 		--pretrained_dec \
 		--num_hoi_queries 6 \
 		--object_threshold 0.5 \
-		--hand_threshold 0.6 \
+		--hand_threshold 0.7 \
 		--temperature 0.05 \
 		--no_aux_loss \
 		--eval \
@@ -312,7 +312,7 @@ doh_single_test_check:
 		--dataset_file doh \
 		--data_path 100doh \
 		--check True \
-		--check_num_images 10 \
+		--check_num_images 30 \
 		--output_dir checkpoints/check/doh \
 		--root 100doh/raw \
 		--vis_mode unique_obj \

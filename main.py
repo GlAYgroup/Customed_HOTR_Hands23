@@ -39,15 +39,26 @@ import random
 def save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename):
     # save_ckpt: function for saving checkpoints
     output_dir = Path(args.output_dir)
-    if args.output_dir:
-        checkpoint_path = output_dir / f'{filename}.pth'
-        utils.save_on_master({
-            'model': model_without_ddp.state_dict(),
-            'optimizer': optimizer.state_dict(),
-            'lr_scheduler': lr_scheduler.state_dict(),
-            'epoch': epoch,
-            'args': args,
-        }, checkpoint_path)
+    if filename == 'checkpoint':
+        if args.output_dir:
+            checkpoint_path = output_dir / f'checkpoints/{filename}{epoch:04d}.pth'
+            utils.save_on_master({
+                'model': model_without_ddp.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'lr_scheduler': lr_scheduler.state_dict(),
+                'epoch': epoch,
+                'args': args,
+            }, checkpoint_path)
+    else:
+        if args.output_dir:
+            checkpoint_path = output_dir / f'{filename}.pth'
+            utils.save_on_master({
+                'model': model_without_ddp.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'lr_scheduler': lr_scheduler.state_dict(),
+                'epoch': epoch,
+                'args': args,
+            }, checkpoint_path)
 
 def save_log(args, dataset_train, dataset_val, name):
     output_dir = Path(args.output_dir)
@@ -335,10 +346,15 @@ def main(args):
                     vis = hoi_visualizer(args, total_res, dataset_val)
 
                 #Evaluation
-                val = hoi_accumulator(args, total_res, True, False)
-                print(f'| mAP (0.75)\t\t: {val[0.75]:.5f}')
-                print(f'| mAP (0.50)\t\t: {val[0.5]:.5f}')
-                print(f'| mAP (0.25)\t\t: {val[0.25]:.5f}')
+                ho_val, hos_val = hoi_accumulator(args, total_res, True, False)
+                print('----[Hand, Active-object] mAP----')
+                print(f'| mAP (0.75)\t\t: {ho_val[0.75]:.5f}')
+                print(f'| mAP (0.50)\t\t: {ho_val[0.5]:.5f}')
+                print(f'| mAP (0.25)\t\t: {ho_val[0.25]:.5f}')
+                print('----[Hand, Active-object, Second-object] mAP----')
+                print(f'| mAP (0.75)\t\t: {hos_val[0.75]:.5f}')
+                print(f'| mAP (0.50)\t\t: {hos_val[0.5]:.5f}')
+                print(f'| mAP (0.25)\t\t: {hos_val[0.25]:.5f}')
 
 
 
@@ -355,6 +371,9 @@ def main(args):
     scenario1, scenario2 = 0, 0
     best_mAP, best_rare, best_non_rare = 0, 0, 0
     quarter_mAP, half_mAP, three_quaters_mAP = 0, 0, 0
+    if args.task == 'ASOD':
+        quarter_so_mAP, half_so_mAP, three_quaters_so_mAP = 0, 0, 0
+        
 
     # add argparse
     if args.wandb and utils.get_rank() == 0:
@@ -378,6 +397,8 @@ def main(args):
 
     # ログファイルに環境情報を保存
     save_log(args, dataset_train, dataset_val, "environment.txt")
+    Path(args.output_dir + "/checkpoints").mkdir(parents=True, exist_ok=True)
+
 
     for epoch in range(args.start_epoch, args.epochs):
         
@@ -432,6 +453,31 @@ def main(args):
                     print(f'| mAP (0.75)\t\t: {val[0.75]:.5f} ({three_quaters_mAP:.5f})')
                     print(f'| mAP (0.50)\t\t: {val[0.5]:.5f} ({half_mAP:.5f})')
                     print(f'| mAP (0.25)\t\t: {val[0.25]:.5f} ({quarter_mAP:.5f})')
+            
+            elif args.dataset_file == 'hands23':
+                #Inference
+                total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
+                if utils.get_rank() == 0:
+                    #Evaluation
+                    val_ho, val_hos = hoi_accumulator(args, total_res, True, False)
+                    if val_ho[0.5] > half_mAP:
+                        three_quaters_mAP = val_ho[0.75]
+                        half_mAP = val_ho[0.5]
+                        quarter_mAP = val_ho[0.25]
+                        save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='best_active')
+                    if val_hos[0.5] > half_so_mAP:
+                        three_quaters_so_mAP = val_hos[0.75]
+                        half_so_mAP = val_hos[0.5]
+                        quarter_so_mAP = val_hos[0.25]
+                        save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='best_second')
+                    print('----[Hand, Active-object] mAP----')
+                    print(f'| mAP (0.75)\t\t: {val_ho[0.75]:.5f} ({three_quaters_mAP:.5f})')
+                    print(f'| mAP (0.50)\t\t: {val_ho[0.5]:.5f} ({half_mAP:.5f})')
+                    print(f'| mAP (0.25)\t\t: {val_ho[0.25]:.5f} ({quarter_mAP:.5f})')
+                    print('----[Hand, Active-object, Second-object] mAP----')
+                    print(f'| mAP (0.75)\t\t: {val_hos[0.75]:.5f} ({three_quaters_so_mAP:.5f})')
+                    print(f'| mAP (0.50)\t\t: {val_hos[0.5]:.5f} ({half_so_mAP:.5f})')
+                    print(f'| mAP (0.25)\t\t: {val_hos[0.25]:.5f} ({quarter_so_mAP:.5f})')
 
             print('-'*100)
         save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='checkpoint')

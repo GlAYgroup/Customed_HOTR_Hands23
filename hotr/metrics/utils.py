@@ -120,13 +120,13 @@ def get_AP_HO(
             final_confidences.append(confidence_score)
             img_ids += [i] * hand_score.shape[0]
 
-    # 引数のデータを準備
-    args_dict = {
-        "hand_recs": any_to_list(hand_recs)
-    }
-    # JSONファイルに保存
-    with open('get_hand_recs.json', 'w') as f:
-        json.dump(args_dict, f, indent=2)
+    # # 引数のデータを準備
+    # args_dict = {
+    #     "hand_recs": any_to_list(hand_recs)
+    # }
+    # # JSONファイルに保存
+    # with open('get_hand_recs.json', 'w') as f:
+    #     json.dump(args_dict, f, indent=2)
 
     hand_recs = np.concatenate(hand_recs)
     obj_recs = np.concatenate(obj_recs)
@@ -141,13 +141,13 @@ def get_AP_HO(
     # print('final_confidences:', final_confidences)
     # print('img_ids:', img_ids)
 
-    # 引数のデータを準備
-    args_dict = {
-        "hand_recs": any_to_list(hand_recs)
-    }
-    # JSONファイルに保存
-    with open('get_con_hand_recs.json', 'w') as f:
-        json.dump(args_dict, f, indent=2)
+    # # 引数のデータを準備
+    # args_dict = {
+    #     "hand_recs": any_to_list(hand_recs)
+    # }
+    # # JSONファイルに保存
+    # with open('get_con_hand_recs.json', 'w') as f:
+    #     json.dump(args_dict, f, indent=2)
 
 
     # define confidence to sort the bounding box
@@ -221,6 +221,148 @@ def get_AP_HO(
 
     return prec, rec, ap
 
+def get_AP_HOS(
+        hand_bboxes, hand_scores,
+        obj_bboxes, obj_scores,
+        sobj_bboxes, sobj_scores,
+        confidence_scores,
+        gt_hand_bboxes, gt_obj_bboxes, gt_sobj_bboxes,
+        iou_thres=0.5, hand_score_thres=0., obj_score_thres=0.,
+        use_07_metric=True):
+    """
+    Inputs:
+        - hand_bboxes: list of ndarray [(N, 4)] with len of num_images
+        - hand_scores: list of ndarray [(N,)] with len of num_images
+        - obj_bboxes: list of ndarray [(N, 4)] with len of num_images
+        - obj_scores: list of ndarray [(N,)] with len of num_images
+        - sobj_bboxes: list of ndarray [(N, 4)] with len of num_images
+        - sobj_scores: list of ndarray [(N,)] with len of num_images
+        - confidence_scores: list of ndarray [(N,)] with len of num_images
+
+        - gt_hand_bboxes: list of ndarray [(M, 4)] with len of num_images
+        - gt_obj_bboxes: list of ndarray [(M, 4)] with len of num_images
+        - gt_sobj_bboxes: list of ndarray [(M, 4)] with len of num_images
+
+    Output:
+        - ap: average precision in float
+    """
+    # グラウンドトゥルースの準備
+    npos = 0
+    img_recs = {}
+    for i, bboxs in enumerate(gt_hand_bboxes):
+        npos += bboxs.shape[0]
+        img_recs[i] = {
+            'hand_bbox': bboxs,
+            'obj_bbox': gt_obj_bboxes[i],
+            'sobj_bbox': gt_sobj_bboxes[i],
+        }
+
+    # 予測結果の準備
+    hand_recs = []
+    obj_recs = []
+    sobj_recs = []
+    hand_confidences = []
+    obj_confidences = []
+    sobj_confidences = []
+    final_confidences = []
+    img_ids = []
+
+    for i, hand_bbox in enumerate(hand_bboxes):
+        hand_score = hand_scores[i]
+        keep_idxs = hand_score > hand_score_thres
+        hand_bbox, hand_score = hand_bbox[keep_idxs], hand_score[keep_idxs]
+        obj_bbox, obj_score = obj_bboxes[i][keep_idxs], obj_scores[i][keep_idxs]
+        sobj_bbox, sobj_score = sobj_bboxes[i][keep_idxs], sobj_scores[i][keep_idxs]
+        confidence_score = confidence_scores[i][keep_idxs]
+
+        if hand_bbox.size > 0:
+            hand_recs.append(hand_bbox)
+            obj_recs.append(obj_bbox)
+            sobj_recs.append(sobj_bbox)
+            hand_confidences.append(hand_score)
+            obj_confidences.append(obj_score)
+            sobj_confidences.append(sobj_score)
+            final_confidences.append(confidence_score)
+            img_ids += [i] * hand_score.shape[0]
+
+    hand_recs = np.concatenate(hand_recs)
+    obj_recs = np.concatenate(obj_recs)
+    sobj_recs = np.concatenate(sobj_recs)
+    hand_confidences = np.concatenate(hand_confidences)
+    obj_confidences = np.concatenate(obj_confidences)
+    sobj_confidences = np.concatenate(sobj_confidences)
+    final_confidences = np.concatenate(final_confidences)
+
+    # 信頼度スコアに基づいてソート
+    confidence_to_sort = final_confidences
+    sorted_ind = np.argsort(-confidence_to_sort)
+    hand_recs = hand_recs[sorted_ind, :]
+    obj_recs = obj_recs[sorted_ind, :]
+    sobj_recs = sobj_recs[sorted_ind, :]
+    img_ids = [img_ids[x] for x in sorted_ind]
+
+    # 真陽性と偽陽性の初期化
+    nd = len(img_ids)
+    tp = np.zeros(nd)
+    fp = np.zeros(nd)
+
+    # 各予測結果の評価
+    for d in range(nd):
+        img_id = img_ids[d]
+        gt_hand_bbox = img_recs[img_id]['hand_bbox']
+        gt_obj_bbox = img_recs[img_id]['obj_bbox']
+        gt_sobj_bbox = img_recs[img_id]['sobj_bbox']
+
+        hand_rec = hand_recs[d]
+        obj_rec = obj_recs[d]
+        sobj_rec = sobj_recs[d]
+
+        if gt_hand_bbox.size > 0:
+            # compute ious
+            ixmin = np.maximum(gt_hand_bbox[:, 0], hand_rec[0])
+            iymin = np.maximum(gt_hand_bbox[:, 1], hand_rec[1])
+            ixmax = np.minimum(gt_hand_bbox[:, 2], hand_rec[2])
+            iymax = np.minimum(gt_hand_bbox[:, 3], hand_rec[3])
+            iw = np.maximum(ixmax - ixmin + 1., 0.)
+            ih = np.maximum(iymax - iymin + 1., 0.)
+            inters = iw * ih
+            uni = ((hand_rec[2] - hand_rec[0] + 1.) * (hand_rec[3] - hand_rec[1] + 1.) +
+                   (gt_hand_bbox[:, 2] - gt_hand_bbox[:, 0] + 1.) *
+                   (gt_hand_bbox[:, 3] - gt_hand_bbox[:, 1] + 1.) - inters)
+            overlaps = inters / uni
+            ovmax_hand = np.max(overlaps)
+            jmax = np.argmax(overlaps)
+
+            # Active-objectのIoU計算
+            overlaps_obj = eval_obj_bbox(obj_rec, gt_obj_bbox[jmax])
+
+            # Second-objectのIoU計算
+            overlaps_sobj = eval_obj_bbox(sobj_rec, gt_sobj_bbox[jmax])
+
+            # 真陽性の条件判定
+            if (ovmax_hand > iou_thres) and (overlaps_obj > iou_thres) and (overlaps_sobj > iou_thres):
+                tp[d] = 1.
+                img_recs[img_id]['hand_bbox'] = gt_hand_bbox[np.arange(
+                    gt_hand_bbox.shape[0]) != jmax]
+                img_recs[img_id]['obj_bbox'] = gt_obj_bbox[np.arange(
+                    gt_obj_bbox.shape[0]) != jmax]
+                img_recs[img_id]['sobj_bbox'] = gt_sobj_bbox[np.arange(
+                    gt_sobj_bbox.shape[0]) != jmax]
+            else:
+                fp[d] = 1.
+        else:
+            fp[d] = 1.
+
+    # 適合率と再現率の計算
+    fp = np.cumsum(fp)
+    tp = np.cumsum(tp)
+    rec = tp / float(npos)
+    prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+
+    # APの計算
+    ap = voc_ap(rec, prec, use_07_metric)
+
+    return prec, rec, ap
 
 
 

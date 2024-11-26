@@ -229,6 +229,7 @@ def doh_visualizer(args, total_res, dataset):
       
                     h_cat_score = target['h_cat_score'][max_index]
                     o_cat_score = target['o_cat_score'][max_index]
+
                     #描画方法の条件分岐
                     if h_cat_score >= hand_thr :
                         if o_cat_score >= obj_thr and target['o_cat_label'][max_index] == 2:
@@ -242,16 +243,6 @@ def doh_visualizer(args, total_res, dataset):
                     h_cat_score = target['h_cat_score'][max_index]
                     o_cat_score = target['o_cat_score'][max_index]
                     so_cat_score = target['so_cat_score'][max_index]
-                    if args.check:
-                        print("h_index_dict", h_index_dict)
-                        print("index_list", index_list)
-                        print("max_index", max_index)
-                        print("target['h_cat_score']", target['h_cat_score'])
-                        print("target['h_cat_label']", target['h_cat_label'])
-                        print("target['o_cat_score']", target['o_cat_score'])
-                        print("target['o_cat_label']", target['o_cat_label'])
-                        print("target['so_cat_score']", target['so_cat_score'])
-                        print("target['so_cat_label']", target['so_cat_label'])
                       
                     #描画方法の条件分岐
                     if h_cat_score >= hand_thr :
@@ -274,6 +265,8 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
     output_dir = args.output_dir
     hand_thr = args.hand_threshold
     obj_thr = args.object_threshold
+    if args.task == 'ASOD':
+        sobj_thr = args.second_object_threshold
 
 
     metric_logger = loggers.MetricLogger(mode="test", delimiter="  ")
@@ -299,13 +292,17 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
     gt_hand_boxes = []
     gt_obj_boxes = []
 
+    if args.task == 'ASOD':
+        pred_sobj_boxes = []  # Second-objectのボックスを格納するリストを追加
+        pred_sobj_scores = []  # Second-objectのスコアを格納するリストを追加
+        gt_sobj_boxes = []  # GTのSecond-objectのボックスを格納するリストを追加
+
     # 1imageずつ処理を行う
     for key, value in metric_logger.log_every(total_res.items(), print_freq, header):
         target = value["prediction"]
         gt = value["target"]
 
-        # 手に対応する物体の中で、最も信頼度(cat_score)が高い一つのみを描画する場合
-        
+        # Handに対応する、予測されたactive-objectの中で、最も信頼度(cat_score)が高いActive-obj1つを選択
         # ユニークな数ごとにインデックスの集合を格納するディクショナリを初期化
         h_index_dict = {}
 
@@ -316,29 +313,45 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
             else:
                 h_index_dict[num] = {i}
 
-        # prsnt("h_index_dict", h_index_dict)
         for unique_key, index_list in h_index_dict.items():
-            max_index, max_obj_value = find_max_active_obj_value_index(index_list, target, obj_thr)
-          
+            if args.task == 'AOD':
+                max_index, max_obj_value = find_max_active_obj_value_index(index_list, target, obj_thr)
 
-            h_cat_score = target['h_cat_score'][max_index]
-            o_cat_score = target['o_cat_score'][max_index]
-            if h_cat_score >= hand_thr :
-                if o_cat_score >= obj_thr:
-                    results.append([max_index, 1])
-                else:
-                    results.append([max_index, 0])
-          
+                h_cat_score = target['h_cat_score'][max_index]
+                o_cat_score = target['o_cat_score'][max_index]
 
-        # resultには一枚の画像に対してunique_objに倣って
-        # 最適な複数のhoi_num_queryのインデックスが入っている
+                if h_cat_score >= hand_thr :
+                    if o_cat_score >= obj_thr and target['o_cat_label'][max_index] == 2:
+                        results.append([max_index, 1]) # [Hand, Active-obj]
+                    else:
+                        results.append([max_index, 0]) # [Hand]
+            elif args.task == 'ASOD':
+                max_index = find_max_second_obj_value_index(index_list, target, obj_thr, sobj_thr)
 
-        # predの情報を集約する
+                h_cat_score = target['h_cat_score'][max_index]
+                o_cat_score = target['o_cat_score'][max_index]
+                so_cat_score = target['so_cat_score'][max_index]
+                    
+                #描画方法の条件分岐
+                if h_cat_score >= hand_thr :
+                    if (so_cat_score >= sobj_thr and target['so_cat_label'][max_index] == 2) and (o_cat_score >= obj_thr and target['o_cat_label'][max_index] == 2):
+                        results.append([max_index, 2]) # [Hand, Active-object, Second-object]
+                    elif o_cat_score >= obj_thr and target['o_cat_label'][max_index] == 2:
+                        results.append([max_index, 1]) # [Hand, Active-object]
+                    else:
+                        results.append([max_index, 0]) # [Hand]
+
+        # print("results", results)
+
+        # Inferenceの情報を集約する
         pre_doh100_hand_boxes = []
         pre_doh100_hand_scores = []
         pre_pred_obj_boxes = []
         pre_pred_obj_scores = []
         pre_pred_confidence_scores = []
+        if args.task == 'ASOD':
+            pre_pred_sobj_boxes = []
+            pre_pred_sobj_scores = []
 
         for index, flag in results:
             h_index = target['h_index'][index]
@@ -352,26 +365,51 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
             o_bbox = target['boxes'][o_index]
             o_cat_score = target['o_cat_score'][index]
 
+            if args.task == 'ASOD':
+                so_index = target['so_index'][index]
+
+                so_labels = target['so_cat_label']
+                so_bbox = target['boxes'][so_index]
+                so_cat_score = target['so_cat_score'][index]
+
             pair_action = target['pair_action'][index]
             interaction_score = 1 - pair_action[-1]
 
-             
-
-
             pre_doh100_hand_boxes.append(h_bbox)
             pre_doh100_hand_scores.append(h_cat_score)
-            # handがobject pairを持たないと推論(後処理)された時
-            if h_index == o_index:
-                pre_pred_obj_boxes.append([0.0, 0.0, 0.0, 0.0])
-                interaction_score_2 = h_cat_score
-            
-            # handがobject pairを持つと推論(後処理)された時
-            else:     
-                pre_pred_obj_boxes.append(o_bbox)
-                interaction_score_2 = h_cat_score * o_cat_score
+            if args.task == 'AOD':
+                # handがobject pairを持たないと推論(後処理)された時
+                if flag == 0:
+                    pre_pred_obj_boxes.append([0.0, 0.0, 0.0, 0.0])
+                    interaction_score_2 = h_cat_score
+                    print("pre_pred_obj_boxes", pre_pred_obj_boxes)
+                
+                # handがobject pairを持つと推論(後処理)された時
+                elif flag == 1:     
+                    pre_pred_obj_boxes.append(o_bbox)
+                    interaction_score_2 = h_cat_score * o_cat_score
+            elif args.task == 'ASOD':
+                # handがactive-secondどちらも持たないと推論(後処理)された時
+                if flag == 0:
+                    pre_pred_obj_boxes.append([0.0, 0.0, 0.0, 0.0])
+                    pre_pred_sobj_boxes.append([0.0, 0.0, 0.0, 0.0])
+                    interaction_score_2 = h_cat_score
+                # handがActive-objectを持つと推論(後処理)された時
+                elif flag == 1:
+                    pre_pred_obj_boxes.append(o_bbox)
+                    pre_pred_sobj_boxes.append([0.0, 0.0, 0.0, 0.0])
+                    interaction_score_2 = h_cat_score * o_cat_score
+                # handがActive-objectとSecond-objectを持つと推論(後処理)された時
+                elif flag == 2:
+                    pre_pred_obj_boxes.append(o_bbox)
+                    pre_pred_sobj_boxes.append(so_bbox)
+                    interaction_score_2 = h_cat_score * o_cat_score * so_cat_score
 
             pre_pred_obj_scores.append(o_cat_score)
             pre_pred_confidence_scores.append(interaction_score_2)
+            if args.task == 'ASOD':
+                pre_pred_sobj_scores.append(so_cat_score)
+
 
         doh100_hand_boxes.append(pre_doh100_hand_boxes)
         doh100_hand_scores.append(pre_doh100_hand_scores)
@@ -379,21 +417,45 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
         pred_obj_scores.append(pre_pred_obj_scores)
         pred_confidence_scores.append(pre_pred_confidence_scores)
 
+        if args.task == 'ASOD':
+            pred_sobj_boxes.append(pre_pred_sobj_boxes)
+            pred_sobj_scores.append(pre_pred_sobj_scores)
+
         results = []
 
         # gtの情報を集約する
         pre_gt_hand_boxes = []
         pre_gt_obj_boxes = []
-    
-        for k in gt["pair_boxes"].cpu().numpy():
-            pre_gt_hand_boxes.append(k[:4])
-            if np.array_equal(k[:4], k[4:]) or np.array_equal(k[4:], [-1, -1, -1, -1]):
-                pre_gt_obj_boxes.append([0.0, 0.0, 0.0, 0.0])
-            else:
-                pre_gt_obj_boxes.append(k[4:])
+        if args.task == 'ASOD':
+            pre_gt_sobj_boxes = []
+
+        if args.task == 'AOD':
+            for k in gt["pair_boxes"].cpu().numpy():
+                pre_gt_hand_boxes.append(k[:4])
+                if np.array_equal(k[:4], k[4:]) or np.array_equal(k[4:], [-1, -1, -1, -1]):
+                    pre_gt_obj_boxes.append([0.0, 0.0, 0.0, 0.0])
+                else:
+                    pre_gt_obj_boxes.append(k[4:])
+        elif args.task == 'ASOD':
+            for k in gt["pair_boxes"].cpu().numpy():
+                pre_gt_hand_boxes.append(k[:4])
+                #Active-obj
+                if np.array_equal(k[:4], k[4:8]) or np.array_equal(k[4:8], [-1, -1, -1, -1]):
+                    pre_gt_obj_boxes.append([0.0, 0.0, 0.0, 0.0])
+                else:
+                    pre_gt_obj_boxes.append(k[4:8])
+                #Second-obj
+                if np.array_equal(k[:4], k[8:12]) or np.array_equal(k[8:12], [-1, -1, -1, -1]):
+                    pre_gt_sobj_boxes.append([0.0, 0.0, 0.0, 0.0])
+                else:    
+                    pre_gt_sobj_boxes.append(k[8:])
+                
+                
         
         gt_hand_boxes.append(pre_gt_hand_boxes)
         gt_obj_boxes.append(pre_gt_obj_boxes)
+        if args.task == 'ASOD':
+            gt_sobj_boxes.append(pre_gt_sobj_boxes)
 
     # # 引数のデータを準備
     # args_dict = {
@@ -417,15 +479,30 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
     pred_confidence_scores = any_to_numpy(pred_confidence_scores)
     gt_hand_boxes = any_to_numpy(gt_hand_boxes)
     gt_obj_boxes = any_to_numpy(gt_obj_boxes)
+    if args.task == 'ASOD':
+        pred_sobj_boxes = any_to_numpy(pred_sobj_boxes)
+        pred_sobj_scores = any_to_numpy(pred_sobj_scores)
+        gt_sobj_boxes = any_to_numpy(gt_sobj_boxes)
 
-    ap_results = {}
-    for iou_thres in [0.75, 0.5, 0.25]:
-        prec, rec, ap = metrics_utils.get_AP_HO(doh100_hand_boxes, doh100_hand_scores, pred_obj_boxes, pred_obj_scores, pred_confidence_scores, 
-                                gt_hand_boxes, gt_obj_boxes, iou_thres=iou_thres)
-        # print('AP(IoU >{:.2f}): {:.4f}'.format(iou_thres, ap))
-        ap_results[iou_thres] = ap
+    ap_ho_results = {}
+    ap_hos_results = {}
+    if args.task == 'AOD':
+        for iou_thres in [0.75, 0.5, 0.25]:
+            prec, rec, ap = metrics_utils.get_AP_HO(doh100_hand_boxes, doh100_hand_scores, pred_obj_boxes, pred_obj_scores, pred_confidence_scores, 
+                                    gt_hand_boxes, gt_obj_boxes, iou_thres=iou_thres)
+            # print('AP(IoU >{:.2f}): {:.4f}'.format(iou_thres, ap))
+            ap_ho_results[iou_thres] = ap
+        return ap_ho_results
+    elif args.task == 'ASOD':
+        for iou_thres in [0.75, 0.5, 0.25]:
+            prec, rec, ap_ho = metrics_utils.get_AP_HO(doh100_hand_boxes, doh100_hand_scores, pred_obj_boxes, pred_obj_scores, pred_confidence_scores, 
+                                    gt_hand_boxes, gt_obj_boxes, iou_thres=iou_thres)
+            ap_ho_results[iou_thres] = ap_ho
 
-    return ap_results
+            prec, rec, ap_hos = metrics_utils.get_AP_HOS(doh100_hand_boxes, doh100_hand_scores, pred_obj_boxes, pred_obj_scores, pred_sobj_boxes, pred_sobj_scores,pred_confidence_scores, 
+                                    gt_hand_boxes, gt_obj_boxes, gt_sobj_boxes, iou_thres=iou_thres)
+            ap_hos_results[iou_thres] = ap_hos
+        return ap_ho_results, ap_hos_results
 
 
 

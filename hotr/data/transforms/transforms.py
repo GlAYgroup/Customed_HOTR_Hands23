@@ -348,19 +348,13 @@ class Normalize(object):
             hboxes = box_xyxy_to_cxcywh(hboxes)
             hboxes = hboxes / torch.tensor([w, h, w, h], dtype=torch.float32)
 
-            oboxes = target["pair_boxes"][:, 4:8]
+            oboxes = target["pair_boxes"][:, 4:]
             obj_mask = (oboxes[:, 0] != -1)
             if obj_mask.sum() != 0:
                 oboxes[obj_mask] = box_xyxy_to_cxcywh(oboxes[obj_mask])
                 oboxes[obj_mask] = oboxes[obj_mask] / torch.tensor([w, h, w, h], dtype=torch.float32)
 
-            soboxes = target["pair_boxes"][:, 8:12]
-            sobj_mask = (soboxes[:, 0] != -1)
-            if sobj_mask.sum() != 0:
-                soboxes[sobj_mask] = box_xyxy_to_cxcywh(soboxes[sobj_mask])
-                soboxes[sobj_mask] = soboxes[sobj_mask] / torch.tensor([w, h, w, h], dtype=torch.float32)
-            
-            pair_boxes = torch.cat([hboxes, oboxes, soboxes], dim=-1)
+            pair_boxes = torch.cat([hboxes, oboxes], dim=-1)
             target["pair_boxes"] = pair_boxes
 
         return image, target

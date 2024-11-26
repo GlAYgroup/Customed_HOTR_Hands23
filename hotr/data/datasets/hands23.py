@@ -518,7 +518,7 @@ def build(image_set, args):
     print('root', root)
 
     part_del = 'excl_nohand_'
-    second_only = ''
+    second_only = '2nd_only_'
     
     assert root.exists(), f'provided Hands23 path {root} does not exist'
     PATHS = {
