@@ -35,6 +35,25 @@ import matplotlib.pyplot as plt
 import maeda_loss_vis as loss_vis
 import random
 
+# 確認用(どの層がfreezeされているか確認)
+def check_trainable_parameters(model):
+    trainable = []
+    frozen = []
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            trainable.append(name)
+        else:
+            frozen.append(name)
+    print("=== Trainable Parameters ===")
+    for name in trainable:
+        print(name)
+    print("\n=== Frozen Parameters ===")
+    for name in frozen:
+        print(name)
+    print(f"\nTotal Parameters: {len(trainable) + len(frozen)}")
+    print(f"Trainable Parameters: {len(trainable)}")
+    print(f"Frozen Parameters: {len(frozen)}")
+
 
 def save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename):
     # save_ckpt: function for saving checkpoints
@@ -69,21 +88,37 @@ def save_log(args, dataset_train, dataset_val, name):
     with log_file_path.open("w") as f:
         pass  ## ファイルを開いてすぐに閉じることで内容をクリア
 
-    log_stats = {"lr":args.lr,
-                 "epochs":args.epochs,
-                 "len_train":len(dataset_train),
-                 "len_val":len(dataset_val),
-                 "num_hoi_queries":args.num_hoi_queries,
-                 "set_cost_idx":args.set_cost_idx,
-                 "hoi_act_loss_coef":args.hoi_act_loss_coef,
-                 "hoi_eos_coef":args.hoi_eos_coef,
-                 **vars(args)}
+    if args.task == 'AOD':
+        log_stats = {"lr":args.lr,
+                    "epochs":args.epochs,
+                    "len_train":len(dataset_train),
+                    "len_val":len(dataset_val),
+                    "num_hoi_queries":args.num_hoi_queries,
+                    "set_cost_idx":args.set_cost_idx,
+                    "set_cost_act":args.set_cost_act,
+                    "hoi_idx_loss_coef":args.hoi_idx_loss_coef,
+                    "hoi_act_loss_coef":args.hoi_act_loss_coef,
+                    "hoi_eos_coef":args.hoi_eos_coef,
+                    **vars(args)}
+    elif args.task == 'ASOD':
+        log_stats = {"lr":args.lr,
+                    "epochs":args.epochs,
+                    "len_train":len(dataset_train),
+                    "len_val":len(dataset_val),
+                    "num_hoi_queries":args.num_hoi_queries,
+                    "set_cost_idx":args.set_cost_idx,
+                    "set_cost_soidx":args.set_cost_soidx,
+                    "set_cost_act":args.set_cost_act,
+                    "hoi_idx_loss_coef":args.hoi_idx_loss_coef,
+                    "hoi_soidx_loss_coef":args.hoi_soidx_loss_coef,
+                    "hoi_act_loss_coef":args.hoi_act_loss_coef,
+                    "hoi_eos_coef":args.hoi_eos_coef,
+                    **vars(args)}
     # 再帰的にシリアライズ
     log_stats_serializable = convert_to_serializable(log_stats)
 
-        
     with log_file_path.open("a") as f:
-        f.write(json.dumps(log_stats_serializable) + "\n")
+        f.write(json.dumps(log_stats_serializable, indent=4) + "\n")
 
 
 def convert_to_serializable(obj):
@@ -223,6 +258,9 @@ def main(args):
         print("Distributed training enabled")
     n_parameters = print_params(model)
 
+    # モデルのパラメータがtrainされるかfreezeされるか確認
+    # check_trainable_parameters(model_without_ddp)
+
     param_dicts = [
         {"params": [p for n, p in model_without_ddp.named_parameters() if "backbone" not in n and p.requires_grad]},
         {
@@ -312,7 +350,6 @@ def main(args):
         if args.HOIDet:
             if args.dataset_file == 'vcoco':
                 total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
-                # total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_train_for_val, device)
                 vis = hoi_visualizer(args, total_res)
 
                 sc1, sc2 = hoi_accumulator(args, total_res, True, False)
@@ -324,7 +361,6 @@ def main(args):
             elif args.dataset_file == 'doh':
                 #Inference
                 total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
-                # total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_train_for_val, device)
 
                 #Visualization
                 if args.vis:
@@ -339,7 +375,6 @@ def main(args):
             elif args.dataset_file == 'hands23':
                 #Inference
                 total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
-                # total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_train_for_val, device)
 
                 #Visualization
                 if args.vis:
@@ -355,8 +390,6 @@ def main(args):
                 print(f'| mAP (0.75)\t\t: {hos_val[0.75]:.5f}')
                 print(f'| mAP (0.50)\t\t: {hos_val[0.5]:.5f}')
                 print(f'| mAP (0.25)\t\t: {hos_val[0.25]:.5f}')
-
-
 
             else: raise ValueError(f'dataset {args.dataset_file} is not supported.')
             return
@@ -395,7 +428,7 @@ def main(args):
     with log_file_path.open("w") as f:
         pass  # ファイルを開いてすぐに閉じることで内容をクリア
 
-    # ログファイルに環境情報を保存
+    # ログファイルに環境情報を保存(train時にのみ実行してほしいのでここに書く)
     save_log(args, dataset_train, dataset_val, "environment.txt")
     Path(args.output_dir + "/checkpoints").mkdir(parents=True, exist_ok=True)
 
@@ -414,7 +447,6 @@ def main(args):
             print('-'*100)
             if args.dataset_file == 'vcoco':
                 total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
-                # total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_train_for_val, device)
 
                 if utils.get_rank() == 0:
                     sc1, sc2 = hoi_accumulator(args, total_res, False, args.wandb)

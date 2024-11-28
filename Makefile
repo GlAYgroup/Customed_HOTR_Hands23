@@ -6,7 +6,7 @@ hands23_multi_train:
 		--task ASOD \
 		--group_name SatoLab_HOTR \
 		--run_name hands23_multi_hand_run_000002 \
-		--batch_size 2 \
+		--batch_size 8 \
 		--HOIDet \
 		--wandb \
 		--validate \
@@ -20,7 +20,7 @@ hands23_multi_train:
 		--set_cost_act 1 \
 		--hoi_idx_loss_coef 1 \
 		--hoi_soidx_loss_coef 1 \
-		--hoi_act_loss_coef 10 \
+		--hoi_act_loss_coef 5 \
 		--hoi_eos_coef 0.1 \
 		--temperature 0.05 \
 		--no_aux_loss \
@@ -62,6 +62,8 @@ hands23_multi_train_check:
 		--output_dir checkpoints/hands23/ \
 		--check True \
 
+
+
 hands23_single_train:
 	python main.py \
 		--task ASOD \
@@ -90,6 +92,7 @@ hands23_single_train:
 		--data_path hands23  \
 		--output_dir checkpoints/hands23 \
 
+
 hands23_single_train_resume:
 	python main.py \
 		--task ASOD \
@@ -115,6 +118,7 @@ hands23_single_train_resume:
 		--output_dir checkpoints/hands23/ \
 		--start_epoch 10 \
 		--resume checkpoints/hands23/SatoLab_HOTR/hands23_single_hand_run_000001/checkpoint.pth \
+
 
 hands23_single_train_check:
 	python main.py \
@@ -144,6 +148,7 @@ hands23_single_train_check:
 		--data_path hands23  \
 		--output_dir checkpoints/check/hands23 \
 		--check True \
+
 	   
 hands23_single_test:
 	python main.py \
@@ -275,11 +280,11 @@ doh_single_train_check:
 doh_single_test:
 	python main.py \
 		--group_name SatoLab_HOTR \
-		--run_name doh_single_hand_run_000003 \
+		--run_name doh_single_hand_run_000001 \
 		--HOIDet \
 		--share_enc \
 		--pretrained_dec \
-		--num_hoi_queries 6 \
+		--num_hoi_queries 16 \
 		--object_threshold 0.5 \
 		--hand_threshold 0.8 \
 		--temperature 0.05 \
@@ -290,9 +295,7 @@ doh_single_test:
 		--output_dir checkpoints/doh \
 		--root 100doh/raw \
 		--vis_mode unique_obj \
-		--resume checkpoints/doh/SatoLab_HOTR/doh_single_hand_run_000003/checkpoint.pth
-#		--vis 
-# --resume checkpoints/check/doh/SatoLab_HOTR/doh_single_hand_run_000003/checkpoint.pth
+		--resume checkpoints/doh/SatoLab_HOTR/doh_single_hand_run_000001/checkpoint.pth
 
 doh_single_test_check:
 	python main.py \

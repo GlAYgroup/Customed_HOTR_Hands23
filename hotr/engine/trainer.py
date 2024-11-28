@@ -43,7 +43,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
 
         outputs = model(samples)
         # outputsを保存
-        save_outputs(outputs, "maeda/outputs/hands23/check_train_output.json")
+        # save_outputs(outputs, "maeda/outputs/hands23/check_train_output.json")
         
         loss_dict = criterion(outputs, targets, log)
         weight_dict = criterion.weight_dict

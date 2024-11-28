@@ -22,10 +22,10 @@ class HungarianPairMatcher(nn.Module):
         super().__init__()
         self.cost_action = args.set_cost_act
         self.cost_hbox = self.cost_obox = args.set_cost_idx
-        self.cost_sobox = args.set_cost_soidx
         self.cost_target = args.set_cost_tgt
         # 追加のパラメータ
-        self.cost_soidx = args.set_cost_soidx if args.task == 'ASOD' else 0  # Second Objectのコスト係数
+        if args.task == 'ASOD':
+            self.cost_sobox = args.set_cost_soidx
         self.task = args.task  # タスク情報を保存
 
         self.log_printer = args.wandb
@@ -75,6 +75,8 @@ class HungarianPairMatcher(nn.Module):
 
     @torch.no_grad()
     def forward(self, outputs, targets, indices, log=False):
+        # print("outputs", outputs)
+        # print("targets", targets)
         assert "pred_actions" in outputs, "There is no action output for pair matching"
         num_obj_queries = outputs["pred_boxes"].shape[1]
         bs, num_queries = outputs["pred_actions"].shape[:2]
@@ -184,9 +186,17 @@ class HungarianPairMatcher(nn.Module):
 
             # obtain ground truth indices for h
             if len(h_match_indices) != len(o_match_indices):
+                print("h_match_indices", h_match_indices)
+                print("o_match_indices", o_match_indices)
+                print("len(h_match_indices)", len(h_match_indices))
+                print("len(o_match_indices)", len(o_match_indices))
                 import pdb; pdb.set_trace()
 
             if self.task == 'ASOD' and len(h_match_indices) != len(so_match_indices):
+                print("h_match_indices", h_match_indices)
+                print("so_match_indices", so_match_indices)
+                print("len(h_match_indices)", len(h_match_indices))
+                print("len(so_match_indices)", len(so_match_indices))
                 import pdb; pdb.set_trace()
 
             for idx in range(len(h_match_indices)):
@@ -279,7 +289,7 @@ class HungarianPairMatcher(nn.Module):
             o_cost = self.cost_obox * cost_oclass
             act_cost = self.cost_action * cost_action
             if self.task == 'ASOD':
-                so_cost = self.cost_soidx * cost_soclass
+                so_cost = self.cost_sobox * cost_soclass
 
             C = h_cost + o_cost + act_cost
             # Second Objectのコストを総コストに追加（ASODの場合）

@@ -44,6 +44,7 @@ class HOTR(nn.Module):
         self.O_Pointer_embed   = MLP(hidden_dim, hidden_dim, hidden_dim, 3)
         self.action_embed = nn.Linear(hidden_dim, num_actions+1)
 
+
         # Second Object用のFFNを追加（taskが'ASOD'のときのみ）
         if self.task == 'ASOD':
             self.SO_Pointer_embed = MLP(hidden_dim, hidden_dim, hidden_dim, 3)
@@ -104,7 +105,7 @@ class HOTR(nn.Module):
         outputs_hidx = [(torch.bmm(H_Pointer_repr, inst_repr.transpose(1,2))) / self.tau for H_Pointer_repr in H_Pointer_reprs]
         outputs_oidx = [(torch.bmm(O_Pointer_repr, inst_repr.transpose(1,2))) / self.tau for O_Pointer_repr in O_Pointer_reprs]
 
-        # [S Pointers] Second Objectの予測（taskが'ASOD'のときのみ）
+        # [S Pointers]
         if self.task == 'ASOD':
             SO_Pointer_reprs = F.normalize(self.SO_Pointer_embed(interaction_hs), p=2, dim=-1)
             outputs_soidx = [(torch.bmm(SO_Pointer_repr, inst_repr.transpose(1, 2))) / self.tau for SO_Pointer_repr in SO_Pointer_reprs]

@@ -50,9 +50,9 @@ def doh_evaluate(model, criterion, postprocessors, data_loader, device, output_d
 
         # print("outputs", outputs)
         #デバッグ用
-        outputs_list = tensor_to_list(outputs)
-        with open('maeda/outputs/hands23/check_test_outputs.json', 'w') as f:
-            json.dump(outputs_list, f, indent=4)
+        # outputs_list = tensor_to_list(outputs)
+        # with open('maeda/outputs/hands23/check_test_outputs.json', 'w') as f:
+        #     json.dump(outputs_list, f, indent=4)
 
         #outpusは正しくsecond objectを出力しているためOk
         
@@ -64,9 +64,9 @@ def doh_evaluate(model, criterion, postprocessors, data_loader, device, output_d
             results = postprocessors['hoi'](outputs, orig_target_sizes, threshold=thr, dataset='hands23')
             
         #デバッグ用
-        results_list = tensor_to_list(results)
-        with open('maeda/outputs/hands23/check_results_list.json', 'w') as f:
-            json.dump(results_list, f, indent=4)
+        # results_list = tensor_to_list(results)
+        # with open('maeda/outputs/hands23/check_results_list.json', 'w') as f:
+        #     json.dump(results_list, f, indent=4)
 
         targets = process_target(targets, orig_target_sizes, args)
         hoi_recognition_time.append(results[0]['hoi_recognition_time'] * 1000)
@@ -93,9 +93,9 @@ def doh_evaluate(model, criterion, postprocessors, data_loader, device, output_d
     print(f"[stats] Distributed Gathering Time : {total_time_str}")
 
     # total_resはTensorを含む可能性がある辞書
-    total_res_list = tensor_to_list(total_res)
-    with open('maeda/outputs/hands23/check_eval_results.json', 'w') as f:
-        json.dump(total_res_list, f, indent=4)
+    # total_res_list = tensor_to_list(total_res)
+    # with open('maeda/outputs/hands23/check_eval_results.json', 'w') as f:
+    #     json.dump(total_res_list, f, indent=4)
 
     return total_res
 
@@ -382,7 +382,6 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
                 if flag == 0:
                     pre_pred_obj_boxes.append([0.0, 0.0, 0.0, 0.0])
                     interaction_score_2 = h_cat_score
-                    print("pre_pred_obj_boxes", pre_pred_obj_boxes)
                 
                 # handがobject pairを持つと推論(後処理)された時
                 elif flag == 1:     
