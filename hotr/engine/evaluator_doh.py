@@ -123,7 +123,7 @@ def doh_visualizer(args, total_res, dataset):
         'Second_Obj': (0, 255, 0),  # Second Objectの色: 緑
     }
     # bboxの太さ
-    thickness = 6
+    thickness = 3
 
     # ロガーの初期化
     metric_logger = loggers.MetricLogger(mode="test", delimiter="  ")

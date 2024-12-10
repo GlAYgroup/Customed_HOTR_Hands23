@@ -322,6 +322,8 @@ def build(image_set, args):
     }
 
     img_folder, ann_file = PATHS[image_set]
+    print('Annotation path is', ann_file)
+
 
     dataset = DohDetection(
         img_folder = img_folder,

@@ -524,7 +524,7 @@ def build(image_set, args):
     PATHS = {
             "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + 'train.json')),
             "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + 'val.json')),
-            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + 'test.json')),
+            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only +part_del + 'test.json')),
         }
     
     # PATHS = {
@@ -535,8 +535,8 @@ def build(image_set, args):
     if args.check:
         PATHS = {
             "train": (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'train.json')),
-            "val"  : (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'train.json')),
-            "test" : (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'train.json')),
+            "val"  : (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'val.json')),
+            "test" : (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'test.json')),
         }
         # PATHS = {
         #     "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only + part_del + 'train.json')),
@@ -544,6 +544,7 @@ def build(image_set, args):
         #     "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only + part_del + 'train.json')),
         # }
     img_folder, ann_file = PATHS[image_set]
+    print('Annotation path is', ann_file)
 
     dataset = handsDetection(
         img_folder = img_folder,

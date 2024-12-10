@@ -5,7 +5,7 @@ hands23_multi_train:
 		--use_env main.py \
 		--task ASOD \
 		--group_name SatoLab_HOTR \
-		--run_name hands23_multi_hand_run_000002 \
+		--run_name hands23_multi_hand_run_000010 \
 		--batch_size 8 \
 		--HOIDet \
 		--wandb \
@@ -153,15 +153,15 @@ hands23_single_train_check:
 hands23_single_test:
 	python main.py \
 		--task ASOD \
-		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000001/checkpoint.pth \
-		--run_name gpu_hands23_multi_hand_run_000001 \
+		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000003/best_second.pth \
+		--run_name gpu_hands23_multi_hand_run_000003/best_second/full_second_only \
 		--root hands23/hands23_data/allMergedBlur \
 		--vis_mode unique_obj \
 		--group_name SatoLab_HOTR \
 		--HOIDet \
 		--share_enc \
 		--pretrained_dec \
-		--num_hoi_queries 10 \
+		--num_hoi_queries 6 \
 		--hand_threshold 0.7 \
 		--object_threshold 0.5 \
 		--second_object_threshold 0.3 \
@@ -172,8 +172,6 @@ hands23_single_test:
 		--dataset_file hands23 \
 		--data_path hands23 \
 		--output_dir checkpoints/hands23 \
-		--check True \
-		--check_num_images 30
 
 # frozen_weightsを変更する必要あり
 hands23_single_test_check:

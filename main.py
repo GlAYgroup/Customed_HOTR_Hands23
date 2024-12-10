@@ -391,6 +391,32 @@ def main(args):
                 print(f'| mAP (0.50)\t\t: {hos_val[0.5]:.5f}')
                 print(f'| mAP (0.25)\t\t: {hos_val[0.25]:.5f}')
 
+                test_log_stats = {
+                                'AOD_three_quaters_mAP': ho_val[0.75],
+                                'AOD_half_mAP': ho_val[0.5],
+                                'AOD_quarter_mAP': ho_val[0.25],
+                                'ASOD_three_quaters_mAP': hos_val[0.75],
+                                'ASOD_half_mAP': hos_val[0.5],
+                                'ASOD_quarter_mAP': hos_val[0.25],
+                                }
+                fixed_test_log_stats = {
+                                'AOD__0.75_mAP': f'{ho_val[0.75]:.5f}',
+                                'AOD__0.50_mAP': f'{ho_val[0.5]:.5f}',
+                                'AOD__0.25_mAP': f'{ho_val[0.25]:.5f}',
+                                'ASOD_0.75_mAP': f'{hos_val[0.75]:.5f}',
+                                'ASOD_0.50_mAP': f'{hos_val[0.5]:.5f}',
+                                'ASOD_0.25_mAP': f'{hos_val[0.25]:.5f}'
+                                }
+
+                
+                with(Path(args.output_dir) / "test_log.txt").open("w") as f:
+                    f.write(json.dumps(test_log_stats, indent=4))
+                with(Path(args.output_dir) / "test_log_fixed.txt").open("w") as f:
+                    f.write(json.dumps(fixed_test_log_stats, indent=4))
+
+          
+                                
+
             else: raise ValueError(f'dataset {args.dataset_file} is not supported.')
             return
         else:
@@ -510,18 +536,31 @@ def main(args):
                     print(f'| mAP (0.75)\t\t: {val_hos[0.75]:.5f} ({three_quaters_so_mAP:.5f})')
                     print(f'| mAP (0.50)\t\t: {val_hos[0.5]:.5f} ({half_so_mAP:.5f})')
                     print(f'| mAP (0.25)\t\t: {val_hos[0.25]:.5f} ({quarter_so_mAP:.5f})')
+                    epoch_log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                                    #  **{f'val_{k}': v for k, v in test_stats.items()},
+                                    'epoch': epoch,
+                                    'n_parameters': n_parameters,
+                                    'AOD_three_quaters_mAP': val_ho[0.75],
+                                    'AOD_half_mAP': val_ho[0.5],
+                                    'AOD_quarter_mAP': val_ho[0.25],
+                                    'ASOD_three_quaters_mAP': val_hos[0.75],
+                                    'ASOD_half_mAP': val_hos[0.5],
+                                    'ASOD_quarter_mAP': val_hos[0.25]
+                                    }
 
             print('-'*100)
         save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='checkpoint')
 
-        log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
-                    #  **{f'test_{k}': v for k, v in test_stats.items()},
-                     'epoch': epoch,
-                     'n_parameters': n_parameters}
+        if args.dataset_file != 'hands23':
+            epoch_log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
+                        #  **{f'test_{k}': v for k, v in test_stats.items()},
+                        'epoch': epoch,
+                        'n_parameters': n_parameters
+                        }
         
         if args.output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:
-                f.write(json.dumps(log_stats) + "\n")
+                f.write(json.dumps(epoch_log_stats) + "\n")
       
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
