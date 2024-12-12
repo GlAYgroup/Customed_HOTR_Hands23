@@ -50,13 +50,38 @@ class Transformer(nn.Module):
 
     def forward(self, src, mask, query_embed, pos_embed, return_decoder_input=False):
         # flatten NxCxHxW to HWxNxC
+        # bs, c, h, w = src.shape
+        # src = src.flatten(2).permute(2, 0, 1)
+        # pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
+        # query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
+        # mask = mask.flatten(1)
+
+        # tgt = torch.zeros_like(query_embed)
+        # memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
+        # hs = self.decoder(tgt, memory, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
+
+        # hand pose用の検証コード
+        # # flatten NxCxHxW to HWxNxC
         bs, c, h, w = src.shape
         src = src.flatten(2).permute(2, 0, 1)
         pos_embed = pos_embed.flatten(2).permute(2, 0, 1)
-        query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
+        # query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
         mask = mask.flatten(1)
 
-        tgt = torch.zeros_like(query_embed)
+        # 修正ずみ:
+        if query_embed.dim() == 2:
+            # query_embedが(num_queries, hidden_dim)の場合
+            num_queries, dim = query_embed.shape
+            query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1) # (num_queries, bs, hidden_dim)
+            tgt = torch.zeros_like(query_embed) # (num_queries, bs, hidden_dim)
+        elif query_embed.dim() == 3:
+            # query_embedが(bs, num_queries, hidden_dim)の場合
+            # デコーダは(num_queries, bs, hidden_dim)を期待するためpermute
+            query_embed = query_embed.permute(1, 0, 2)   # (num_queries, bs, hidden_dim)
+            tgt = torch.zeros_like(query_embed)  # (num_queries, bs, hidden_dim)
+        else:
+            raise ValueError("query_embed must be either (num_queries, hidden_dim) or (bs, num_queries, hidden_dim)")
+
         memory = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
         hs = self.decoder(tgt, memory, memory_key_padding_mask=mask, pos=pos_embed, query_pos=query_embed)
 

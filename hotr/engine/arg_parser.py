@@ -23,6 +23,9 @@ def get_args_parser():
     parser.add_argument('--check', default=False, type=bool)
     parser.add_argument('--check_num_images', default=-1, type=int)
 
+    # Hand pose
+    parser.add_argument('--hand_pose', action='store_true', help="Train by hand pose")
+
     # Task(AOD(Active object detection), ASOD(Active Secong Object Detection))
     parser.add_argument('--task', default='AOD', type=str)
 

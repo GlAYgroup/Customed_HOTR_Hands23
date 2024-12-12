@@ -23,10 +23,12 @@ class HOTR(nn.Module):
                  temperature,
                  hoi_aux_loss,
                  return_obj_class=None,
-                 task='AOD' # for ASOD
+                 task='AOD', # for ASOD
+                 hand_pose=False  # hand_poseフラグを追加
                  ):
         super().__init__()
         self.task = task # for ASOD
+        self.hand_pose = hand_pose  # hand_pose状態を保持
 
         # * Instance Transformer ---------------
         self.detr = detr
@@ -48,6 +50,13 @@ class HOTR(nn.Module):
         # Second Object用のFFNを追加（taskが'ASOD'のときのみ）
         if self.task == 'ASOD':
             self.SO_Pointer_embed = MLP(hidden_dim, hidden_dim, hidden_dim, 3)
+
+        # * Hand pose Options for adding Interaction Query -------------------
+        if hand_pose:
+            # 21点 * 2座標 = 42次元をhidden_dimへ射影するMLP
+            self.hand_pose_mlp = MLP(42, hidden_dim, hidden_dim, 3)
+            # concat後の (hidden_dim*2) を hidden_dim に戻すためのプロジェクション層
+            self.hand_pose_proj = nn.Linear(hidden_dim*2, hidden_dim)
         # --------------------------------------------------------------------
 
         # * HICO-DET FFN heads ---------------------------------------------
@@ -72,7 +81,8 @@ class HOTR(nn.Module):
         self.hoi_aux_loss = hoi_aux_loss
         # ----------------------------------
 
-    def forward(self, samples: NestedTensor):
+
+    def forward(self, samples: NestedTensor, targets=None):
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
         
@@ -97,8 +107,57 @@ class HOTR(nn.Module):
         # >>>>>>>>>>>> HOI DETECTION LAYERS <<<<<<<<<<<<<<<
         start_time = time.time()
         assert hasattr(self, 'interaction_transformer'), "Missing Interaction Transformer."
-        interaction_hs = self.interaction_transformer(self.detr.input_proj(src), mask, self.query_embed.weight, pos[-1])[0] # interaction representations
-    
+
+        # [Hand Pose]
+        if self.hand_pose and targets is not None:
+            hand_queries_batch = []
+            hidden_dim = inst_repr.shape[-1]
+
+            for tgt in targets:
+                if "hand_2d_key_points" in tgt and tgt["hand_2d_key_points"].numel() > 0:
+                    kp = tgt["hand_2d_key_points"]        # (N_hand, 21, 2)
+                    conf = tgt["hand_kp_confidence"]      # (N_hand,)
+
+                    # (N_hand, 21, 2) -> (N_hand, 42)
+                    N_hand = kp.shape[0]
+                    kp_flat = kp.view(N_hand, 42)
+
+                    # キーポイントをhidden_dimへ射影
+                    hp_feats = self.hand_pose_mlp(kp_flat) # (N_hand, hidden_dim)
+
+                    # confidence順に並び替え
+                    sorted_idx = conf.argsort(descending=True)
+                    hp_feats = hp_feats[sorted_idx]
+
+                    # num_queriesと比較し切り取りまたはパディング
+                    if hp_feats.shape[0] > self.num_queries:
+                        hp_feats = hp_feats[:self.num_queries]
+                    elif hp_feats.shape[0] < self.num_queries:
+                        pad_len = self.num_queries - hp_feats.shape[0]
+                        pad = torch.zeros(pad_len, hidden_dim, device=hp_feats.device)
+                        hp_feats = torch.cat([hp_feats, pad], dim=0)
+                else:
+                    # キーポイントがない場合は全て0でパディング
+                    hp_feats = torch.zeros(self.num_queries, hidden_dim, device=src.device)
+
+                hand_queries_batch.append(hp_feats.unsqueeze(0))  # (1, num_queries, hidden_dim)
+
+            hand_query_stack = torch.cat(hand_queries_batch, dim=0) # (bs, num_queries, hidden_dim)
+            base_query = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1) # (bs, num_queries, hidden_dim)
+
+            # concatでpositional embeddingと手の特徴を結合
+            # concat: (bs, num_queries, hidden_dim) + (bs, num_queries, hidden_dim)
+            # → (bs, num_queries, hidden_dim*2)
+            query_concat = torch.cat([base_query, hand_query_stack], dim=2)
+
+            # MLP(Linear)で (hidden_dim*2) → hidden_dim に戻す
+            query_embed = self.hand_pose_proj(query_concat) # (bs, num_queries, hidden_dim)
+        else:
+            query_embed = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1)        
+
+        # interaction_hs = self.interaction_transformer(self.detr.input_proj(src), mask, self.query_embed.weight, pos[-1])[0] # interaction representations
+        interaction_hs = self.interaction_transformer(self.detr.input_proj(src), mask, query_embed, pos[-1])[0] # interaction representations
+
         # [HO Pointers]
         H_Pointer_reprs = F.normalize(self.H_Pointer_embed(interaction_hs), p=2, dim=-1)
         O_Pointer_reprs = F.normalize(self.O_Pointer_embed(interaction_hs), p=2, dim=-1)

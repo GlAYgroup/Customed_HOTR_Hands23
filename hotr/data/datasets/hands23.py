@@ -29,7 +29,7 @@ class handsDetection(Dataset):
                  image_set,
                  filter_empty_gt=True,
                  transforms=None,
-                 task='AOD'
+                 args=None,
                  ):
         self.img_folder = img_folder
         self.file_meta = dict()
@@ -37,17 +37,17 @@ class handsDetection(Dataset):
 
         self.image_set = image_set
 
-        if task == 'AOD':
+        self.task = args.task
+        self.hand_pose = args.hand_pose
+        if self.task == 'AOD':
             self.inst_act_list = ['no_contact', 'other_person_contact', 'self_contact', 'object_contact'] #Hands23 the hand contact state(0~3)
             self.act_list = ['no_contact', 'other_person_contact', 'self_contact', 'object_contact'] #Hands23 the hand contact state(0~3)
-        elif task == 'ASOD':
+        elif self.task == 'ASOD':
             self.inst_act_list = ['Hand', 'Hand_Active', 'Hand_Active_Second']
             self.act_list = ['Hand', 'Hand_Active', 'Hand_Active_Second']
         self.file_meta['action_classes'] = self.act_list
         self.hands_classes = ['N/A', 'hand', 'object']
         self.file_meta['hands_classes'] = self.hands_classes
-
-        self.task = task
         # self.images_attribute = ['boardgame', 'diy', 'drink', 'food', 'furniture', 'gardening', 'housework', 'packing', 'puzzle', 'repair', 'study', 'vlog']
         
         self.ann_file = ann_file
@@ -146,6 +146,12 @@ class handsDetection(Dataset):
         pair_target = []
         pair_so_target = []
 
+        #for hand pose
+        if  self.hand_pose:
+            hand_bboxes = []
+            hand_2d_key_points = []
+            hand_kp_confidence = []
+
         annotation = self.annotations[self.img_infos[image_index]]
 
         for side_annotation in annotation:
@@ -161,6 +167,11 @@ class handsDetection(Dataset):
             # print('new_inst_action', new_inst_action)
             new_inst_action[side_annotation["contact_state"]] = 1
             inst_action.append(new_inst_action)
+
+            if  self.hand_pose and "pred_2d_keypoints" in side_annotation:
+                hand_bboxes.append(new_hand_bbox)
+                hand_2d_key_points.append(side_annotation["pred_2d_keypoints"])
+                hand_kp_confidence.append(side_annotation["pred_confidence"])
 
             if side_annotation["second_obj_bbox"] is not None:
                 new_obj_bbox = [side_annotation["obj_bbox"]["x1"] * side_annotation["width"],
@@ -231,8 +242,13 @@ class handsDetection(Dataset):
         pair_action = np.array(pair_action)
         pair_target = np.array(pair_target)
         pair_so_target = np.array(pair_so_target)
-    
-        return inst_bbox, inst_category, inst_action, pair_bbox, pair_action, pair_target, pair_so_target
+        if self.hand_pose:
+            hand_bboxes = np.array(hand_bboxes)
+            hand_2d_key_points = np.array(hand_2d_key_points)
+            hand_kp_confidence = np.array(hand_kp_confidence)
+            return inst_bbox, inst_category, inst_action, pair_bbox, pair_action, pair_target, pair_so_target, hand_bboxes, hand_2d_key_points, hand_kp_confidence
+        else:
+            return inst_bbox, inst_category, inst_action, pair_bbox, pair_action, pair_target, pair_so_target
 
     ############################################################################
     # Image Name Loader
@@ -367,13 +383,13 @@ class handsDetection(Dataset):
 
         # print("/large/maeda/HOTR/hotr/data/datasets/doh.py", img_info)
 
-
         w, h = image.size
         target["orig_size"] = torch.as_tensor([int(h), int(w)])
         target["size"] = torch.as_tensor([int(h), int(w)])
 
         if self._transforms is not None:
             img, target = self._transforms(image, target) # "size" gets converted here
+        
         return img, target
         # return image
 
@@ -384,7 +400,8 @@ class handsDetection(Dataset):
         img, target = self.prepare_img(idx)
         # print('=================START===============')
         # print('image_info:', self.img_infos[idx])
-        # print("/large/maeda/HOTR/hotr/data/datasets/doh.py target: ", target)
+        # print("/large/maeda/HOTR/hotr/data/datasets/doh.py target: ")
+        # print(target)
         # print('=================END=================')
         return img, target
     
@@ -407,10 +424,13 @@ class handsDetection(Dataset):
         img_idx = idx
 
         # load each annotation
-        if self.task == 'AOD':
+        if self.task == 'AOD':#ひとまずhand poseのフラグはADOには追加していない
             inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets = self.load_instance_pair_annotations(img_idx)
         elif self.task == 'ASOD':
-            inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets = self.load_instance_triplet_annotations(img_idx)
+            if self.hand_pose:
+                inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets, hand_bboxes, hand_2d_key_points, hand_kp_confidence = self.load_instance_triplet_annotations(img_idx)
+            else:
+                inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets = self.load_instance_triplet_annotations(img_idx)
         else:
             raise ValueError(f'unknown task {self.task}')
 
@@ -426,6 +446,13 @@ class handsDetection(Dataset):
         }
         if self.task == 'ASOD':
             sample['triplet_targets'] = torch.tensor(pair_so_targets, dtype=torch.int64)
+
+        if self.hand_pose:
+            if hand_bboxes is not None and len(hand_bboxes) > 0:
+                sample['hand_bboxes'] = torch.as_tensor(hand_bboxes, dtype=torch.float32)
+                sample['hand_2d_key_points'] = torch.as_tensor(hand_2d_key_points, dtype=torch.float32)
+                sample['hand_kp_confidence'] = torch.as_tensor(hand_kp_confidence, dtype=torch.float32)
+                    
 
         # print('sample', sample)
         return sample
@@ -513,18 +540,17 @@ def make_simple_hoi_transforms(image_set):
 
 def build(image_set, args):
     root = Path(args.data_path)
-    task = args.task
-    print('task', task)
-    print('root', root)
+    print('TASK------>>>>', args.task)
 
     part_del = 'excl_nohand_'
     second_only = '2nd_only_'
+    hand_kp = 'w_2dkp_'
     
     assert root.exists(), f'provided Hands23 path {root} does not exist'
     PATHS = {
-            "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + 'train.json')),
-            "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + 'val.json')),
-            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only +part_del + 'test.json')),
+            "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'train.json')),
+            "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'val.json')),
+            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'test.json')),
         }
     
     # PATHS = {
@@ -534,14 +560,14 @@ def build(image_set, args):
     #     }
     if args.check:
         PATHS = {
-            "train": (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'train.json')),
-            "val"  : (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'val.json')),
-            "test" : (root / 'hands23_data' / 'sub_allMergedBlur', root / 'hands23_data' / 'doh_format_sub_dataset' / ('sub_' + second_only + part_del + 'test.json')),
+            "train": (root / 'hands23_data' / 'sub_100' / 'sub_allMergedBlur', root / 'hands23_data' / 'sub_100' / 'doh_format_sub_dataset' / ('sub_' + part_del + 'train.json')),
+            "val"  : (root / 'hands23_data' / 'sub_100' / 'sub_allMergedBlur', root / 'hands23_data' / 'sub_100' / 'doh_format_sub_dataset' / ('sub_' + part_del + 'val.json')),
+            "test" : (root / 'hands23_data' / 'sub_100' / 'sub_allMergedBlur', root / 'hands23_data' / 'sub_100' / 'doh_format_sub_dataset' / ('sub_' + part_del + 'test.json')),
         }
         # PATHS = {
-        #     "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only + part_del + 'train.json')),
-        #     "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only + part_del + 'train.json')),
-        #     "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only + part_del + 'train.json')),
+        #     "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'train.json')),
+        #     "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'val.json')),
+        #     "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'test.json')),
         # }
     img_folder, ann_file = PATHS[image_set]
     print('Annotation path is', ann_file)
@@ -551,9 +577,9 @@ def build(image_set, args):
         ann_file = ann_file,
         image_set = image_set,
         filter_empty_gt=True,
-        transforms = make_hoi_transforms(image_set),
-        task=task,
-        # transforms = make_simple_hoi_transforms(image_set)
+        # transforms = make_hoi_transforms(image_set),
+        args = args,
+        transforms = make_simple_hoi_transforms(image_set)
     )
     dataset.file_meta['dataset_file'] = args.dataset_file
     dataset.file_meta['image_set'] = image_set

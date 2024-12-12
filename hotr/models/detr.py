@@ -162,6 +162,7 @@ def build(args):
             temperature=args.temperature,
             hoi_aux_loss=args.hoi_aux_loss,
             task=args.task, # for ASOD
+            hand_pose=args.hand_pose, # for extension
             **kwargs # only return verb class for HICO-DET dataset
         )
         postprocessors = {'hoi': PostProcess(args.HOIDet, args.task)}

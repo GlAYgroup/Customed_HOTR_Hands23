@@ -458,6 +458,18 @@ class Normalize(object):
 
             target["pair_boxes"] = pair_boxes
 
+        # for hand pose
+        if "hand_bboxes" in target:
+            # print("hand_bboxes", target["hand_bboxes"])
+            hand_bboxes = target["hand_bboxes"]
+            hand_bboxes = box_xyxy_to_cxcywh(hand_bboxes)
+            hand_bboxes = hand_bboxes / torch.tensor([w, h, w, h], dtype=torch.float32)
+            target["hand_bboxes"] = hand_bboxes
+        if "hand_2d_key_points" in target:
+            hand_pose = target["hand_2d_key_points"]
+            hand_pose = hand_pose / torch.tensor([w, h], dtype=torch.float32)
+            target["hand_2d_key_points"] = hand_pose
+
         return image, target
 
 class ColorJitter(object):

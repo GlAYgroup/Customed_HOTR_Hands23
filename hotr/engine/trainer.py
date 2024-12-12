@@ -41,7 +41,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
 
-        outputs = model(samples)
+        outputs = model(samples, targets)
         # outputsを保存
         # save_outputs(outputs, "maeda/outputs/hands23/check_train_output.json")
         
