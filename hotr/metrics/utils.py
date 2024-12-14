@@ -364,6 +364,248 @@ def get_AP_HOS(
 
     return prec, rec, ap
 
+import numpy as np
+
+# def get_AP_single(
+#         pred_bboxes, pred_scores,
+#         gt_bboxes,
+#         iou_thres=0.5, score_threshold=0.0,
+#         use_07_metric=True):
+#     """
+#     単一カテゴリの Average Precision (AP) を計算します。
+    
+#     Args:
+#         pred_bboxes (list of np.ndarray): 各画像の予測ボックスのリスト。各要素は (N, 4) の ndarray。
+#             形式: [ [ [x_min, y_min, x_max, y_max], ... ], ... ]
+#         pred_scores (list of np.ndarray): 各画像の予測スコアのリスト。各要素は (N,) の ndarray。
+#             形式: [ [score1, score2, ...], ... ]
+#         gt_bboxes (list of np.ndarray): 各画像のグラウンドトゥルースボックスのリスト。各要素は (M, 4) の ndarray。
+#             形式: [ [ [x_min, y_min, x_max, y_max], ... ], ... ]
+#         iou_threshold (float, optional): 真陽性とみなす IoU の閾値。デフォルトは 0.5。
+#         score_threshold (float, optional): 予測スコアの閾値。これ以下の予測は無視されます。デフォルトは 0.0。
+#         use_07_metric (bool, optional): VOC 2007 の 11 点 AP を使用するかどうか。デフォルトは True。
+    
+#     Returns:
+#         float: 計算された Average Precision (AP) 値。
+#     """
+#     # グラウンドトゥルースの準備
+#     npos = 0
+#     img_recs = {}
+#     for i, bboxs in enumerate(gt_bboxes):
+#         npos += bboxs.shape[0]
+#         img_recs[i] = {
+#             'bbox': bboxs
+#         }
+    
+#     # 予測の収集とスコアによるフィルタリング
+#     bbox_recs = []
+#     bbox_confidences = []
+#     img_ids = []
+
+#     for i, bboxes in enumerate(pred_bboxes):
+#         scores = pred_scores[i]
+#         keep_idxs = scores > score_threshold
+#         bboxes, scores = bboxes[keep_idxs], scores[keep_idxs]
+#         confidence_score = scores
+
+#         if bboxes.size > 0:
+#             bbox_recs.append(bboxes)
+#             bbox_confidences.append(scores)
+#             img_ids += [i] * scores.shape[0]
+    
+#     bbox_recs = np.concatenate(bbox_recs)
+#     bbox_confidences = np.concatenate(bbox_confidences)
+
+#     # 信頼度スコアに基づいてソート
+#     confidence_to_sort = bbox_confidences
+#     sorted_ind = np.argsort(-confidence_to_sort)
+#     bbox_recs = bbox_recs[sorted_ind, :]
+#     img_ids = [img_ids[x] for x in sorted_ind]
+
+#     # 真陽性と偽陽性の初期化
+#     nd = len(img_ids)
+#     tp = np.zeros(nd)
+#     fp = np.zeros(nd)
+
+#     # 各予測結果の評価
+#     for d in range(nd):
+#         img_id = img_ids[d]
+#         gt_bbox = img_recs[img_id]['bbox']
+
+#         bbox_rec = bbox_recs[d]
+
+#         if gt_bbox.size > 0:
+#             # compute ious
+#             ixmin = np.maximum(gt_bbox[:, 0], bbox_rec[0])
+#             iymin = np.maximum(gt_bbox[:, 1], bbox_rec[1])
+#             ixmax = np.minimum(gt_bbox[:, 2], bbox_rec[2])
+#             iymax = np.minimum(gt_bbox[:, 3], bbox_rec[3])
+#             iw = np.maximum(ixmax - ixmin + 1., 0.)
+#             ih = np.maximum(iymax - iymin + 1., 0.)
+#             inters = iw * ih
+#             uni = ((bbox_rec[2] - bbox_rec[0] + 1.) * (bbox_rec[3] - bbox_rec[1] + 1.) +
+#                    (gt_bbox[:, 2] - gt_bbox[:, 0] + 1.) *
+#                    (gt_bbox[:, 3] - gt_bbox[:, 1] + 1.) - inters)
+#             overlaps = inters / uni
+#             ovmax = np.max(overlaps)
+#             jmax = np.argmax(overlaps)
+
+#             # 真陽性の条件判定
+#             if ovmax > iou_thres:
+#                 tp[d] = 1.
+#                 img_recs[img_id]['bbox'] = gt_bbox[np.arange(
+#                     gt_bbox.shape[0]) != jmax]
+#             else:
+#                 fp[d] = 1.
+#         else:
+#             fp[d] = 1.
+    
+#     # 適合率と再現率の計算
+#     fp = np.cumsum(fp)
+#     tp = np.cumsum(tp)
+#     rec = tp / float(npos)
+#     prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+
+#     # AP の計算
+#     ap = voc_ap(rec, prec, use_07_metric)
+
+#     return prec, rec ,ap
+    
+
+import numpy as np
+
+def remove_zero_boxes_and_scores(bboxes, scores):
+    """
+    全ての値が0のボックスと対応するスコアを削除します。
+
+    Args:
+        bboxes (np.ndarray): ボックスの配列 (N, 4)。
+        scores (np.ndarray): スコアの配列 (N,)。
+
+    Returns:
+        tuple: (フィルタリング後のボックス, フィルタリング後のスコア)
+    """
+    # 空の配列の場合を処理
+    if bboxes is None or len(bboxes) == 0:
+        return np.empty((0, 4)), np.empty((0,))
+    valid_idxs = np.any(bboxes != 0, axis=1)  # 全てが0でない行のインデックス
+    return bboxes[valid_idxs], scores[valid_idxs]
+
+def get_AP_single(
+        pred_bboxes, pred_scores,
+        gt_bboxes,
+        iou_thres=0.5, score_threshold=0.0,
+        use_07_metric=True):
+    """
+    単一カテゴリの Average Precision (AP) を計算します。
+
+    Args:
+        pred_bboxes (list of np.ndarray): 各画像の予測ボックスのリスト。
+        pred_scores (list of np.ndarray): 各画像の予測スコアのリスト。
+        gt_bboxes (list of np.ndarray): 各画像のグラウンドトゥルースボックスのリスト。
+        iou_threshold (float, optional): IoUの閾値。デフォルトは0.5。
+        score_threshold (float, optional): スコアの閾値。これ以下の予測は無視されます。デフォルトは0.0。
+        use_07_metric (bool, optional): VOC 2007の11点法を使用するか。デフォルトはTrue。
+
+    Returns:
+        tuple: (precision, recall, AP) のタプル。
+    """
+    # グラウンドトゥルースの準備
+    npos = 0
+    img_recs = {}
+    for i, bboxs in enumerate(gt_bboxes):
+        bboxs, _ = remove_zero_boxes_and_scores(bboxs, np.zeros(bboxs.shape[0]))  # ボックスのみフィルタ
+        npos += bboxs.shape[0]
+        img_recs[i] = {'bbox': bboxs}
+
+    # 予測の収集とスコアによるフィルタリング
+    bbox_recs = []
+    bbox_confidences = []
+    img_ids = []
+
+    for i, bboxes in enumerate(pred_bboxes):
+        scores = pred_scores[i]
+
+        # 無効なボックスとスコアを削除
+        bboxes, scores = remove_zero_boxes_and_scores(bboxes, scores)
+
+        # ボックスが空の場合をスキップ
+        if bboxes.size == 0:
+            continue
+
+        keep_idxs = scores > score_threshold
+
+        # スコアが条件を満たすボックスがない場合をスキップ
+        if np.sum(keep_idxs) == 0:
+            continue
+
+        bboxes, scores = bboxes[keep_idxs], scores[keep_idxs]
+
+        bbox_recs.append(bboxes)
+        bbox_confidences.append(scores)
+        img_ids += [i] * scores.shape[0]
+
+    bbox_recs = np.concatenate(bbox_recs) if bbox_recs else np.array([])
+    bbox_confidences = np.concatenate(bbox_confidences) if bbox_confidences else np.array([])
+
+    if len(bbox_recs) == 0:
+        # 有効な予測がない場合
+        return 0.0, 0.0, 0.0
+
+    # スコアに基づいてソート
+    sorted_ind = np.argsort(-bbox_confidences)
+    bbox_recs = bbox_recs[sorted_ind, :]
+    img_ids = [img_ids[x] for x in sorted_ind]
+
+    # 真陽性 (TP) と偽陽性 (FP) の初期化
+    nd = len(img_ids)
+    tp = np.zeros(nd)
+    fp = np.zeros(nd)
+
+    # 各予測の評価
+    for d in range(nd):
+        img_id = img_ids[d]
+        gt_bbox = img_recs[img_id]['bbox']
+
+        bbox_rec = bbox_recs[d]
+
+        if gt_bbox.size > 0:
+            # IoU の計算
+            ixmin = np.maximum(gt_bbox[:, 0], bbox_rec[0])
+            iymin = np.maximum(gt_bbox[:, 1], bbox_rec[1])
+            ixmax = np.minimum(gt_bbox[:, 2], bbox_rec[2])
+            iymax = np.minimum(gt_bbox[:, 3], bbox_rec[3])
+            iw = np.maximum(ixmax - ixmin + 1., 0.)
+            ih = np.maximum(iymax - iymin + 1., 0.)
+            inters = iw * ih
+            uni = ((bbox_rec[2] - bbox_rec[0] + 1.) * (bbox_rec[3] - bbox_rec[1] + 1.) +
+                   (gt_bbox[:, 2] - gt_bbox[:, 0] + 1.) *
+                   (gt_bbox[:, 3] - gt_bbox[:, 1] + 1.) - inters)
+            overlaps = inters / uni
+            ovmax = np.max(overlaps)
+            jmax = np.argmax(overlaps)
+
+            # マッチング条件を判定
+            if ovmax > iou_thres:
+                tp[d] = 1.
+                img_recs[img_id]['bbox'] = gt_bbox[np.arange(gt_bbox.shape[0]) != jmax]
+            else:
+                fp[d] = 1.
+        else:
+            fp[d] = 1.
+
+    # 適合率 (Precision) と再現率 (Recall) の計算
+    fp = np.cumsum(fp)
+    tp = np.cumsum(tp)
+    rec = tp / float(npos)
+    prec = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
+
+    # 平均適合率 (AP) の計算
+    ap = _compute_ap(rec, prec)
+
+    return prec, rec, ap
+
+
 
 
 def count_parameters(model):

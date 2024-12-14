@@ -253,7 +253,7 @@ def main(args):
 
     model_without_ddp = model
     if args.distributed:
-        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu])
+        model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=True)
         model_without_ddp = model.module
         print("Distributed training enabled")
     n_parameters = print_params(model)
@@ -368,9 +368,9 @@ def main(args):
 
                 #Evaluation
                 val = hoi_accumulator(args, total_res, True, False)
-                print(f'| mAP (0.75)\t\t: {val[0.75]:.5f}')
-                print(f'| mAP (0.50)\t\t: {val[0.5]:.5f}')
-                print(f'| mAP (0.25)\t\t: {val[0.25]:.5f}')
+                print(f'| AP (0.75)\t\t: {val[0.75]:.5f}')
+                print(f'| AP (0.50)\t\t: {val[0.5]:.5f}')
+                print(f'| AP (0.25)\t\t: {val[0.25]:.5f}')
 
             elif args.dataset_file == 'hands23':
                 #Inference
@@ -381,31 +381,61 @@ def main(args):
                     vis = hoi_visualizer(args, total_res, dataset_val)
 
                 #Evaluation
-                ho_val, hos_val = hoi_accumulator(args, total_res, True, False)
-                print('----[Hand, Active-object] mAP----')
-                print(f'| mAP (0.75)\t\t: {ho_val[0.75]:.5f}')
-                print(f'| mAP (0.50)\t\t: {ho_val[0.5]:.5f}')
-                print(f'| mAP (0.25)\t\t: {ho_val[0.25]:.5f}')
-                print('----[Hand, Active-object, Second-object] mAP----')
-                print(f'| mAP (0.75)\t\t: {hos_val[0.75]:.5f}')
-                print(f'| mAP (0.50)\t\t: {hos_val[0.5]:.5f}')
-                print(f'| mAP (0.25)\t\t: {hos_val[0.25]:.5f}')
+                ho_val, hos_val, hand_val, active_obj_val, second_obj_val = hoi_accumulator(args, total_res, True, False)
+                print('----[Hand, Active-object] AP----')
+                print(f'| AP (0.75)\t\t: {ho_val[0.75]:.5f}')
+                print(f'| AP (0.50)\t\t: {ho_val[0.5]:.5f}')
+                print(f'| AP (0.25)\t\t: {ho_val[0.25]:.5f}')
+                print('----[Hand, Active-object, Second-object] AP----')
+                print(f'| AP (0.75)\t\t: {hos_val[0.75]:.5f}')
+                print(f'| AP (0.50)\t\t: {hos_val[0.5]:.5f}')
+                print(f'| AP (0.25)\t\t: {hos_val[0.25]:.5f}')
+                print('----[Hand] AP----')
+                print(f'| AP (0.75)\t\t: {hand_val[0.75]:.5f}')
+                print(f'| AP (0.50)\t\t: {hand_val[0.5]:.5f}')
+                print(f'| AP (0.25)\t\t: {hand_val[0.25]:.5f}')
+                print('----[Active-object] AP----')
+                print(f'| AP (0.75)\t\t: {active_obj_val[0.75]:.5f}')
+                print(f'| AP (0.50)\t\t: {active_obj_val[0.5]:.5f}')
+                print(f'| AP (0.25)\t\t: {active_obj_val[0.25]:.5f}')
+                print('----[Second-object] AP----')
+                print(f'| AP (0.75)\t\t: {second_obj_val[0.75]:.5f}')
+                print(f'| AP (0.50)\t\t: {second_obj_val[0.5]:.5f}')
+                print(f'| AP (0.25)\t\t: {second_obj_val[0.25]:.5f}')
 
                 test_log_stats = {
-                                'AOD_three_quaters_mAP': ho_val[0.75],
-                                'AOD_half_mAP': ho_val[0.5],
-                                'AOD_quarter_mAP': ho_val[0.25],
-                                'ASOD_three_quaters_mAP': hos_val[0.75],
-                                'ASOD_half_mAP': hos_val[0.5],
-                                'ASOD_quarter_mAP': hos_val[0.25],
+                                'AOD_three_quaters_AP': ho_val[0.75],
+                                'AOD_half_AP': ho_val[0.5],
+                                'AOD_quarter_AP': ho_val[0.25],
+                                'ASOD_three_quaters_AP': hos_val[0.75],
+                                'ASOD_half_AP': hos_val[0.5],
+                                'ASOD_quarter_AP': hos_val[0.25],
+                                'Hand_three_quaters_AP': hand_val[0.75],
+                                'Hand_half_AP': hand_val[0.5],
+                                'Hand_quarter_AP': hand_val[0.25],
+                                'Active_object_three_quaters_AP': active_obj_val[0.75],
+                                'Active_object_half_AP': active_obj_val[0.5],
+                                'Active_object_quarter_AP': active_obj_val[0.25],
+                                'Second_object_three_quaters_AP': second_obj_val[0.75],
+                                'Second_object_half_AP': second_obj_val[0.5],
+                                'Second_object_quarter_AP': second_obj_val[0.25]
                                 }
                 fixed_test_log_stats = {
-                                'AOD__0.75_mAP': f'{ho_val[0.75]:.5f}',
-                                'AOD__0.50_mAP': f'{ho_val[0.5]:.5f}',
-                                'AOD__0.25_mAP': f'{ho_val[0.25]:.5f}',
-                                'ASOD_0.75_mAP': f'{hos_val[0.75]:.5f}',
-                                'ASOD_0.50_mAP': f'{hos_val[0.5]:.5f}',
-                                'ASOD_0.25_mAP': f'{hos_val[0.25]:.5f}'
+                                'AOD__0.75_AP': f'{ho_val[0.75]:.5f}',
+                                'AOD__0.50_AP': f'{ho_val[0.5]:.5f}',
+                                'AOD__0.25_AP': f'{ho_val[0.25]:.5f}',
+                                'ASOD_0.75_AP': f'{hos_val[0.75]:.5f}',
+                                'ASOD_0.50_AP': f'{hos_val[0.5]:.5f}',
+                                'ASOD_0.25_AP': f'{hos_val[0.25]:.5f}',
+                                'Hand_0.75_AP': f'{hand_val[0.75]:.5f}',
+                                'Hand_0.50_AP': f'{hand_val[0.5]:.5f}',
+                                'Hand_0.25_AP': f'{hand_val[0.25]:.5f}',
+                                'AObj_0.75_AP': f'{active_obj_val[0.75]:.5f}',
+                                'AObj_0.50_AP': f'{active_obj_val[0.5]:.5f}',
+                                'AObj_0.25_AP': f'{active_obj_val[0.25]:.5f}',
+                                'SObj_0.75_AP': f'{second_obj_val[0.75]:.5f}',
+                                'SObj_0.50_AP': f'{second_obj_val[0.5]:.5f}',
+                                'SObj_0.25_AP': f'{second_obj_val[0.25]:.5f}'
                                 }
 
                 
@@ -468,6 +498,9 @@ def main(args):
             args.clip_max_norm, dataset_file=args.dataset_file, log=args.wandb)
         lr_scheduler.step()
 
+        # Clear CUDA cache after each epoch
+        torch.cuda.empty_cache()
+
         # Validation
         if args.validate:
             print('-'*100)
@@ -517,7 +550,7 @@ def main(args):
                 total_res = hoi_evaluator(args, model, criterion, postprocessors, data_loader_val, device)
                 if utils.get_rank() == 0:
                     #Evaluation
-                    val_ho, val_hos = hoi_accumulator(args, total_res, True, False)
+                    val_ho, val_hos, val_hand, val_active_obj, val_second_obj = hoi_accumulator(args, total_res, True, False)
                     if val_ho[0.5] > half_mAP:
                         three_quaters_mAP = val_ho[0.75]
                         half_mAP = val_ho[0.5]
@@ -528,14 +561,27 @@ def main(args):
                         half_so_mAP = val_hos[0.5]
                         quarter_so_mAP = val_hos[0.25]
                         save_ckpt(args, model_without_ddp, optimizer, lr_scheduler, epoch, filename='best_second')
-                    print('----[Hand, Active-object] mAP----')
-                    print(f'| mAP (0.75)\t\t: {val_ho[0.75]:.5f} ({three_quaters_mAP:.5f})')
-                    print(f'| mAP (0.50)\t\t: {val_ho[0.5]:.5f} ({half_mAP:.5f})')
-                    print(f'| mAP (0.25)\t\t: {val_ho[0.25]:.5f} ({quarter_mAP:.5f})')
-                    print('----[Hand, Active-object, Second-object] mAP----')
-                    print(f'| mAP (0.75)\t\t: {val_hos[0.75]:.5f} ({three_quaters_so_mAP:.5f})')
-                    print(f'| mAP (0.50)\t\t: {val_hos[0.5]:.5f} ({half_so_mAP:.5f})')
-                    print(f'| mAP (0.25)\t\t: {val_hos[0.25]:.5f} ({quarter_so_mAP:.5f})')
+                    print('----[Hand, Active-object] AP----')
+                    print(f'| AP (0.75)\t\t: {val_ho[0.75]:.5f} ({three_quaters_mAP:.5f})')
+                    print(f'| AP (0.50)\t\t: {val_ho[0.5]:.5f} ({half_mAP:.5f})')
+                    print(f'| AP (0.25)\t\t: {val_ho[0.25]:.5f} ({quarter_mAP:.5f})')
+                    print('----[Hand, Active-object, Second-object] AP----')
+                    print(f'| AP (0.75)\t\t: {val_hos[0.75]:.5f} ({three_quaters_so_mAP:.5f})')
+                    print(f'| AP (0.50)\t\t: {val_hos[0.5]:.5f} ({half_so_mAP:.5f})')
+                    print(f'| AP (0.25)\t\t: {val_hos[0.25]:.5f} ({quarter_so_mAP:.5f})')
+                    print('----[Hand] AP----')
+                    print(f'| AP (0.75)\t\t: {val_hand[0.75]:.5f}')
+                    print(f'| AP (0.50)\t\t: {val_hand[0.5]:.5f}')
+                    print(f'| AP (0.25)\t\t: {val_hand[0.25]:.5f}')
+                    print('----[Active-object] AP----')
+                    print(f'| AP (0.75)\t\t: {val_active_obj[0.75]:.5f}')
+                    print(f'| AP (0.50)\t\t: {val_active_obj[0.5]:.5f}')
+                    print(f'| AP (0.25)\t\t: {val_active_obj[0.25]:.5f}')
+                    print('----[Second-object] AP----')
+                    print(f'| AP (0.75)\t\t: {val_second_obj[0.75]:.5f}')
+                    print(f'| AP (0.50)\t\t: {val_second_obj[0.5]:.5f}')
+                    print(f'| AP (0.25)\t\t: {val_second_obj[0.25]:.5f}')
+
                     epoch_log_stats = {**{f'train_{k}': v for k, v in train_stats.items()},
                                     #  **{f'val_{k}': v for k, v in test_stats.items()},
                                     'epoch': epoch,
@@ -545,7 +591,16 @@ def main(args):
                                     'AOD_quarter_mAP': val_ho[0.25],
                                     'ASOD_three_quaters_mAP': val_hos[0.75],
                                     'ASOD_half_mAP': val_hos[0.5],
-                                    'ASOD_quarter_mAP': val_hos[0.25]
+                                    'ASOD_quarter_mAP': val_hos[0.25],
+                                    'Hand_three_quaters_mAP': val_hand[0.75],
+                                    'Hand_half_mAP': val_hand[0.5],
+                                    'Hand_quarter_mAP': val_hand[0.25],
+                                    'Active_object_three_quaters_mAP': val_active_obj[0.75],
+                                    'Active_object_half_mAP': val_active_obj[0.5],
+                                    'Active_object_quarter_mAP': val_active_obj[0.25],
+                                    'Second_object_three_quaters_mAP': val_second_obj[0.75],
+                                    'Second_object_half_mAP': val_second_obj[0.5],
+                                    'Second_object_quarter_mAP': val_second_obj[0.25]
                                     }
 
             print('-'*100)
@@ -561,6 +616,9 @@ def main(args):
         if args.output_dir and utils.is_main_process():
             with (output_dir / "log.txt").open("a") as f:
                 f.write(json.dumps(epoch_log_stats) + "\n")
+        
+        # Clear CUDA cache after validation
+        torch.cuda.empty_cache()
       
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

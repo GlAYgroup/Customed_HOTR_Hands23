@@ -44,7 +44,7 @@ def doh_evaluate(model, criterion, postprocessors, data_loader, device, output_d
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
 
-        outputs = model(samples)
+        outputs = model(samples, targets)
         loss_dict = criterion(outputs, targets)
         loss_dict_reduced = utils.reduce_dict(loss_dict) # ddp gathering
 
@@ -485,6 +485,9 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
 
     ap_ho_results = {}
     ap_hos_results = {}
+    ap_hand_results = {}
+    ap_active_obj_results = {}
+    ap_second_obj_results = {}
     if args.task == 'AOD':
         for iou_thres in [0.75, 0.5, 0.25]:
             prec, rec, ap = metrics_utils.get_AP_HO(doh100_hand_boxes, doh100_hand_scores, pred_obj_boxes, pred_obj_scores, pred_confidence_scores, 
@@ -501,7 +504,20 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
             prec, rec, ap_hos = metrics_utils.get_AP_HOS(doh100_hand_boxes, doh100_hand_scores, pred_obj_boxes, pred_obj_scores, pred_sobj_boxes, pred_sobj_scores,pred_confidence_scores, 
                                     gt_hand_boxes, gt_obj_boxes, gt_sobj_boxes, iou_thres=iou_thres)
             ap_hos_results[iou_thres] = ap_hos
-        return ap_ho_results, ap_hos_results
+
+            prec, rec, ap_hand = metrics_utils.get_AP_single(doh100_hand_boxes, doh100_hand_scores,
+                                    gt_hand_boxes, iou_thres=iou_thres)
+            ap_hand_results[iou_thres] = ap_hand
+
+            prec, rec, ap_active_obj = metrics_utils.get_AP_single(pred_obj_boxes, pred_obj_scores,
+                                    gt_obj_boxes, iou_thres=iou_thres)
+            ap_active_obj_results[iou_thres] = ap_active_obj
+
+            prec, rec, ap_second_obj = metrics_utils.get_AP_single(pred_sobj_boxes, pred_sobj_scores,
+                                    gt_sobj_boxes, iou_thres=iou_thres)
+            ap_second_obj_results[iou_thres] = ap_second_obj
+
+        return ap_ho_results, ap_hos_results, ap_hand_results, ap_active_obj_results, ap_second_obj_results
 
 
 

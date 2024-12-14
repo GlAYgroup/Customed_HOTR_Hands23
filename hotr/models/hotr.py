@@ -24,11 +24,11 @@ class HOTR(nn.Module):
                  hoi_aux_loss,
                  return_obj_class=None,
                  task='AOD', # for ASOD
-                 hand_pose=False  # hand_poseフラグを追加
+                 args=None  # hand_poseフラグを追加
                  ):
         super().__init__()
         self.task = task # for ASOD
-        self.hand_pose = hand_pose  # hand_pose状態を保持
+        self.hand_pose = args.hand_pose  # hand_pose状態を保持
 
         # * Instance Transformer ---------------
         self.detr = detr
@@ -52,11 +52,13 @@ class HOTR(nn.Module):
             self.SO_Pointer_embed = MLP(hidden_dim, hidden_dim, hidden_dim, 3)
 
         # * Hand pose Options for adding Interaction Query -------------------
-        if hand_pose:
+        if self.hand_pose == 'add_in_d_0':
             # 21点 * 2座標 = 42次元をhidden_dimへ射影するMLP
             self.hand_pose_mlp = MLP(42, hidden_dim, hidden_dim, 3)
             # concat後の (hidden_dim*2) を hidden_dim に戻すためのプロジェクション層
-            self.hand_pose_proj = nn.Linear(hidden_dim*2, hidden_dim)
+            self.hand_pose_proj_0 = nn.Linear(hidden_dim*2, hidden_dim)
+        if self.hand_pose == 'add_in_d_1':
+            self.hand_pose_proj_1 = MLP(hidden_dim+42, hidden_dim, hidden_dim, 3)
         # --------------------------------------------------------------------
 
         # * HICO-DET FFN heads ---------------------------------------------
@@ -109,7 +111,7 @@ class HOTR(nn.Module):
         assert hasattr(self, 'interaction_transformer'), "Missing Interaction Transformer."
 
         # [Hand Pose]
-        if self.hand_pose and targets is not None:
+        if (self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1') and targets is not None:
             hand_queries_batch = []
             hidden_dim = inst_repr.shape[-1]
 
@@ -122,8 +124,11 @@ class HOTR(nn.Module):
                     N_hand = kp.shape[0]
                     kp_flat = kp.view(N_hand, 42)
 
-                    # キーポイントをhidden_dimへ射影
-                    hp_feats = self.hand_pose_mlp(kp_flat) # (N_hand, hidden_dim)
+                    if self.hand_pose == 'add_in_d_0':
+                        # キーポイントをhidden_dimへ射影
+                        hp_feats = self.hand_pose_mlp(kp_flat) # (N_hand, hidden_dim)
+                    elif self.hand_pose == 'add_in_d_1':
+                        hp_feats = kp_flat
 
                     # confidence順に並び替え
                     sorted_idx = conf.argsort(descending=True)
@@ -134,11 +139,22 @@ class HOTR(nn.Module):
                         hp_feats = hp_feats[:self.num_queries]
                     elif hp_feats.shape[0] < self.num_queries:
                         pad_len = self.num_queries - hp_feats.shape[0]
-                        pad = torch.zeros(pad_len, hidden_dim, device=hp_feats.device)
+                        if self.hand_pose == 'add_in_d_0':
+                            pad = torch.zeros(pad_len, hidden_dim, device=hp_feats.device)
+                        elif self.hand_pose == 'add_in_d_1':
+                            pad = torch.zeros(pad_len, 42, device=hp_feats.device)
                         hp_feats = torch.cat([hp_feats, pad], dim=0)
                 else:
                     # キーポイントがない場合は全て0でパディング
-                    hp_feats = torch.zeros(self.num_queries, hidden_dim, device=src.device)
+                    if self.hand_pose == 'add_in_d_0':
+                        hp_feats = torch.zeros(self.num_queries, hidden_dim, device=src.device)
+                    elif self.hand_pose == 'add_in_d_1':
+                        hp_feats = torch.zeros(self.num_queries, 42, device=src.device)
+                    # キーポイントがない場合でもhand_pose_mlpを通すダミー処理
+                    # dummy_input = torch.zeros(1, 42, device=src.device)
+                    # dummy_feats = self.hand_pose_mlp(dummy_input) # (1, hidden_dim)
+                    # dummy_feats = dummy_feats.expand(self.num_queries, -1) # (num_queries, hidden_dim)
+                    # hp_feats = dummy_feats if hp_feats is None else hp_feats
 
                 hand_queries_batch.append(hp_feats.unsqueeze(0))  # (1, num_queries, hidden_dim)
 
@@ -151,7 +167,10 @@ class HOTR(nn.Module):
             query_concat = torch.cat([base_query, hand_query_stack], dim=2)
 
             # MLP(Linear)で (hidden_dim*2) → hidden_dim に戻す
-            query_embed = self.hand_pose_proj(query_concat) # (bs, num_queries, hidden_dim)
+            if self.hand_pose == 'add_in_d_0':
+                query_embed = self.hand_pose_proj_0(query_concat) # (bs, num_queries, hidden_dim)
+            elif self.hand_pose == 'add_in_d_1':
+                query_embed = self.hand_pose_proj_1(query_concat)
         else:
             query_embed = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1)        
 

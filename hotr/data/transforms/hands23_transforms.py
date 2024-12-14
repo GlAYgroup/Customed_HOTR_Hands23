@@ -88,6 +88,18 @@ def crop(image, target, region):
         target['masks'] = target['masks'][:, i:i + h, j:j + w]
         fields.append("masks")
 
+    if "hand_bboxes" in target:
+        hand_bboxes = target["hand_bboxes"]
+        cropped_hand_bboxes = hand_bboxes - torch.as_tensor([j, i, j, i])
+        cropped_hand_bboxes = torch.min(cropped_hand_bboxes.reshape(-1, 2, 2), max_size)
+        cropped_hand_bboxes = cropped_hand_bboxes.clamp(min=0)
+        target["hand_bboxes"] = cropped_hand_bboxes.reshape(-1, 4)
+
+    if "hand_2d_key_points" in target:
+        keypoints = target["hand_2d_key_points"]
+        keypoints = keypoints - torch.as_tensor([j, i])
+        target["hand_2d_key_points"] = keypoints
+
     # remove elements for which the boxes or masks that have zero area
     if "boxes" in target or "masks" in target:
         # favor boxes selection when defining which elements to keep
@@ -150,6 +162,22 @@ def crop(image, target, region):
         for pair_field in pair_fields:
             target[pair_field] = target[pair_field][keep_h]
 
+    if "hand_2d_key_points" in target and "hand_bboxes" in target and "pair_boxes" in target and "hand_kp_confidence" in target:
+        hand_bboxes = target["hand_bboxes"]  # [num_hand_bboxes, 4]
+        pair_hand_boxes = target["pair_boxes"][:, :4]  # [num_pairs, 4]
+
+        # 手のバウンディングボックスが pair_boxes に存在するか確認
+        # pair_boxes に同じ値が存在するかを確認（直接比較）
+        # mask: hand_bboxes に存在する手が pair_hand_boxes に存在するか
+        mask = torch.any(torch.all(pair_hand_boxes.unsqueeze(0) == hand_bboxes.unsqueeze(1), dim=2), dim=1)
+
+        # 一致する hand_bboxes と hand_2d_key_points を保持
+        target["hand_bboxes"] = hand_bboxes[mask]
+        target["hand_2d_key_points"] = target["hand_2d_key_points"][mask]
+        target["hand_kp_confidence"] = target["hand_kp_confidence"][mask]
+
+       
+
     return cropped_image, target
 
 def hflip(image, target):
@@ -196,6 +224,18 @@ def hflip(image, target):
             pair_boxes = torch.cat([hboxes, oboxes], dim=1)
 
         target["pair_boxes"] = pair_boxes
+
+    if "hand_bboxes" in target:
+        hand_bboxes = target["hand_bboxes"]
+        hand_bboxes = hand_bboxes[:, [2, 1, 0, 3]] * torch.as_tensor([-1, 1, -1, 1]) + torch.as_tensor([w, 0, w, 0])
+        target["hand_bboxes"] = hand_bboxes
+
+        # hand_2d_key_pointsの処理を追加
+    if "hand_2d_key_points" in target:
+        keypoints = target["hand_2d_key_points"].clone()
+        # x座標を反転
+        keypoints = keypoints * torch.as_tensor([-1, 1]) + torch.as_tensor([w, 0])
+        target["hand_2d_key_points"] = keypoints
 
     if "masks" in target:
         target['masks'] = target['masks'].flip(-1)
@@ -294,21 +334,33 @@ def resize(image, target, size, max_size=None):
     if "masks" in target:
         target['masks'] = interpolate(
             target['masks'][:, None].float(), size, mode="nearest")[:, 0] > 0.5
+        
+    if "hand_bboxes" in target:
+        hand_bboxes = target["hand_bboxes"]
+        hand_bboxes = hand_bboxes * torch.as_tensor([ratio_width, ratio_height, ratio_width, ratio_height])
+        target["hand_bboxes"] = hand_bboxes
+        
+    # hand_2d_key_pointsのリサイズ処理を追加
+    if "hand_2d_key_points" in target:
+        keypoints = target["hand_2d_key_points"]
+        keypoints = keypoints * torch.as_tensor([ratio_width, ratio_height])
+        target["hand_2d_key_points"] = keypoints
 
     return rescaled_image, target
 
 
-def pad(image, target, padding):
-    # assumes that we only pad on the bottom right corners
-    padded_image = F.pad(image, (0, 0, padding[0], padding[1]))
-    if target is None:
-        return padded_image, None
-    target = target.copy()
-    # should we do something wrt the original size?
-    target["size"] = torch.tensor(padded_image[::-1])
-    if "masks" in target:
-        target['masks'] = torch.nn.functional.pad(target['masks'], (0, padding[0], 0, padding[1]))
-    return padded_image, target
+# hand keypointの処理を加えてないためとりあえずコメントアウト
+# def pad(image, target, padding):
+#     # assumes that we only pad on the bottom right corners
+#     padded_image = F.pad(image, (0, 0, padding[0], padding[1]))
+#     if target is None:
+#         return padded_image, None
+#     target = target.copy()
+#     # should we do something wrt the original size?
+#     target["size"] = torch.tensor(padded_image[::-1])
+#     if "masks" in target:
+#         target['masks'] = torch.nn.functional.pad(target['masks'], (0, padding[0], 0, padding[1]))
+#     return padded_image, target
 
 
 class RandomCrop(object):
@@ -331,18 +383,17 @@ class RandomSizeCrop(object):
         region = T.RandomCrop.get_params(img, [h, w])
         return crop(img, target, region)
 
-
-class CenterCrop(object):
-    def __init__(self, size):
-        self.size = size
-
-    def __call__(self, img, target):
-        image_width, image_height = img.size
-        crop_height, crop_width = self.size
-        crop_top = int(round((image_height - crop_height) / 2.))
-        crop_left = int(round((image_width - crop_width) / 2.))
-        return crop(img, target, (crop_top, crop_left, crop_height, crop_width))
-
+# hand keypointの処理を加えてないためとりあえずコメントアウト
+# class CenterCrop(object):
+#     def __init__(self, size):
+#         self.size = size
+# 
+#     def __call__(self, img, target):
+#         image_width, image_height = img.size
+#         crop_height, crop_width = self.size
+#         crop_top = int(round((image_height - crop_height) / 2.))
+#         crop_left = int(round((image_width - crop_width) / 2.))
+#         return crop(img, target, (crop_top, crop_left, crop_height, crop_width))
 
 class RandomHorizontalFlip(object):
     def __init__(self, p=0.5):
@@ -365,15 +416,15 @@ class RandomResize(object):
         return resize(img, target, size, self.max_size)
 
 
-class RandomPad(object):
-    def __init__(self, max_pad):
-        self.max_pad = max_pad
+# hand keypointの処理を加えてないためとりあえずコメントアウト
+# class RandomPad(object):
+#     def __init__(self, max_pad):
+#         self.max_pad = max_pad
 
-    def __call__(self, img, target):
-        pad_x = random.randint(0, self.max_pad)
-        pad_y = random.randint(0, self.max_pad)
-        return pad(img, target, (pad_x, pad_y))
-
+#     def __call__(self, img, target):
+#         pad_x = random.randint(0, self.max_pad)
+#         pad_y = random.randint(0, self.max_pad)
+#         return pad(img, target, (pad_x, pad_y))
 
 class RandomSelect(object):
     """
@@ -396,13 +447,13 @@ class ToTensor(object):
         return F.to_tensor(img), target
 
 
-class RandomErasing(object):
+# class RandomErasing(object):
 
-    def __init__(self, *args, **kwargs):
-        self.eraser = T.RandomErasing(*args, **kwargs)
+#     def __init__(self, *args, **kwargs):
+#         self.eraser = T.RandomErasing(*args, **kwargs)
 
-    def __call__(self, img, target):
-        return self.eraser(img), target
+#     def __call__(self, img, target):
+#         return self.eraser(img), target
 
 
 class Normalize(object):
@@ -460,7 +511,6 @@ class Normalize(object):
 
         # for hand pose
         if "hand_bboxes" in target:
-            # print("hand_bboxes", target["hand_bboxes"])
             hand_bboxes = target["hand_bboxes"]
             hand_bboxes = box_xyxy_to_cxcywh(hand_bboxes)
             hand_bboxes = hand_bboxes / torch.tensor([w, h, w, h], dtype=torch.float32)

@@ -5,22 +5,23 @@ hands23_multi_train:
 		--use_env main.py \
 		--task ASOD \
 		--group_name SatoLab_HOTR \
-		--run_name hands23_multi_hand_run_000010 \
-		--batch_size 8 \
+		--run_name hands23_multi_hand_run_000012 \
+		--batch_size 2 \
 		--HOIDet \
 		--wandb \
 		--validate \
 		--share_enc \
 		--pretrained_dec \
 		--lr 1e-4 \
-		--epochs 300 \
+		--lr_drop 80 \
+		--epochs 100 \
 		--num_hoi_queries 6 \
 		--set_cost_idx 10 \
 		--set_cost_soidx 10 \
-		--set_cost_act 1 \
+		--set_cost_act 0.0 \
 		--hoi_idx_loss_coef 1 \
-		--hoi_soidx_loss_coef 1 \
-		--hoi_act_loss_coef 5 \
+		--hoi_soidx_loss_coef 7 \
+		--hoi_act_loss_coef 0.0 \
 		--hoi_eos_coef 0.1 \
 		--temperature 0.05 \
 		--no_aux_loss \
@@ -29,6 +30,7 @@ hands23_multi_train:
 		--frozen_weights resume/hands23/gpu_hands23_multi_hand_run_000001/checkpoint0299.pth \
 		--data_path hands23 \
 		--output_dir checkpoints/hands23/ \
+		--hand_pose add_in_d_1 \
 
 #Hands23
 hands23_multi_train_check:
@@ -126,19 +128,19 @@ hands23_single_train_check:
 		--task ASOD \
 		--group_name SatoLab_HOTR \
 		--run_name hands23_single_hand_run_000013 \
-		--batch_size 2 \
+		--batch_size 4 \
 		--HOIDet \
 		--validate \
 		--share_enc \
 		--pretrained_dec \
 		--lr 1e-4 \
-		--epochs 100 \
+		--epochs 3 \
 		--num_hoi_queries 6 \
 		--set_cost_idx 10 \
 		--set_cost_soidx 10 \
 		--set_cost_act 0 \
 		--hoi_idx_loss_coef 1 \
-		--hoi_soidx_loss_coef 1 \
+		--hoi_soidx_loss_coef 7 \
 		--hoi_act_loss_coef 0 \
 		--hoi_eos_coef 0.1 \
 		--temperature 0.05 \
@@ -149,13 +151,17 @@ hands23_single_train_check:
 		--data_path hands23  \
 		--output_dir checkpoints/check/hands23 \
 		--check True \
+		--check_num_images 100 \
+
+#		--hand_pose add_in_d_1 \
+
 
 	   
 hands23_single_test:
 	python main.py \
 		--task ASOD \
-		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000003/best_second.pth \
-		--run_name gpu_hands23_multi_hand_run_000003/best_second/full_second_only \
+		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000004/best_second.pth \
+		--run_name gpu_hands23_multi_hand_run_000004/best_second/full_second_only \
 		--root hands23/hands23_data/allMergedBlur \
 		--vis_mode unique_obj \
 		--group_name SatoLab_HOTR \
@@ -169,18 +175,19 @@ hands23_single_test:
 		--temperature 0.05 \
 		--no_aux_loss \
 		--eval \
-		--vis \
 		--dataset_file hands23 \
 		--data_path hands23 \
 		--output_dir checkpoints/hands23 \
+
+#      --vis
 
 # frozen_weightsを変更する必要あり
 hands23_single_test_check:
 	python main.py \
 		--task ASOD \
-		--resume checkpoints/check/hands23/SatoLab_HOTR/hands23_single_hand_run_000008/checkpoint.pth \
-		--run_name hands23_single_hand_run_000008 \
-		--root hands23/hands23_data/sub_allMergedBlur \
+		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000004/best_second.pth \
+		--run_name gpu_hands23_multi_hand_run_000004/best_second/check \
+		--root hands23/hands23_data/allMergedBlur \
 		--vis_mode unique_obj \
 		--group_name SatoLab_HOTR \
 		--HOIDet \
@@ -193,11 +200,11 @@ hands23_single_test_check:
 		--temperature 0.05 \
 		--no_aux_loss \
 		--eval \
-		--vis \
 		--dataset_file hands23 \
 		--data_path hands23 \
-		--output_dir checkpoints/check/hands23 \
+		--output_dir checkpoints/hands23 \
 		--check True \
+		--check_num_images 300 \
 		
 # 100DOH
 ## [Doh] single-gpu train (runs in 1 GPU)
