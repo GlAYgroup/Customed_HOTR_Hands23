@@ -456,20 +456,24 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
         if args.task == 'ASOD':
             gt_sobj_boxes.append(pre_gt_sobj_boxes)
 
-    # # 引数のデータを準備
-    # args_dict = {
-    #     "doh100_hand_boxes": any_to_list(doh100_hand_boxes),
-    #     "doh100_hand_scores": any_to_list(doh100_hand_scores),
-    #     "pred_obj_boxes": any_to_list(pred_obj_boxes),
-    #     "pred_obj_scores": any_to_list(pred_obj_scores),
-    #     "pred_confidence_scores": any_to_list(pred_confidence_scores),
-    #     "gt_hand_boxes": any_to_list(gt_hand_boxes),
-    #     "gt_obj_boxes": any_to_list(gt_obj_boxes),
-    #     "iou_thres": [0.75, 0.5, 0.25]
-    # }
-    # # JSONファイルに保存
-    # with open('get_ap_ho_args.json', 'w') as f:
-    #     json.dump(args_dict, f, indent=2)
+    # 引数のデータを準備
+    args_dict = {
+        "doh100_hand_boxes": any_to_list(doh100_hand_boxes),
+        "doh100_hand_scores": any_to_list(doh100_hand_scores),
+        "pred_obj_boxes": any_to_list(pred_obj_boxes),
+        "pred_obj_scores": any_to_list(pred_obj_scores),
+        "pred_sobj_boxes": any_to_list(pred_sobj_boxes),
+        "pred_sobj_scores": any_to_list(pred_sobj_scores),
+        "pred_confidence_scores": any_to_list(pred_confidence_scores),
+        "gt_hand_boxes": any_to_list(gt_hand_boxes),
+        "gt_obj_boxes": any_to_list(gt_obj_boxes),
+        "gt_sobj_boxes": any_to_list(gt_sobj_boxes),
+        # "iou_thres": [0.75, 0.5, 0.25]
+    }
+    # JSONファイルに保存
+    with open('maeda/outputs/get_ap_ho_args.json', 'w') as f:
+        json.dump(args_dict, f, indent=4)
+    print("get_ap_ho_args.json is saved")
 
     doh100_hand_boxes = any_to_numpy(doh100_hand_boxes)
     doh100_hand_scores = any_to_numpy(doh100_hand_scores)

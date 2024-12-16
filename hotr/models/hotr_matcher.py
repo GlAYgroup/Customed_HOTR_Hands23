@@ -184,20 +184,51 @@ class HungarianPairMatcher(nn.Module):
 
             tgt_hids, tgt_oids = [], []
 
+            # print("h_match_indices", h_match_indices)
+            # print("o_match_indices", o_match_indices)
+            # print("so_match_indices", so_match_indices)
+            # print("len(h_match_indices)", len(h_match_indices))
+            # print("len(o_match_indices)", len(o_match_indices))
+            # print("len(so_match_indices)", len(so_match_indices))
+            # print("cost_h_box.size()", cost_hbox.size())
+            # print("cost_o_box.size()", cost_obox.size())
+            # print("cost_sobox.size()", cost_sobox.size())
+            # # h_match_indices = torch.empty((0, 0), dtype=torch.long, device=h_match_indices.device)
+            # # o_match_indices = torch.empty((0, 0), dtype=torch.long, device=o_match_indices.device)
+            # # so_match_indices = torch.empty((0, 0), dtype=torch.long, device=so_match_indices.device)
+            # print("after_h_match_indices", h_match_indices)
+            # print("after_o_match_indices", o_match_indices)
+            # print("after_so_match_indices", so_match_indices)
+            
+
             # obtain ground truth indices for h
             if len(h_match_indices) != len(o_match_indices):
+                print("batch_idx", batch_idx)
+                print("targets", targets)
+                print("outputs", outputs)
                 print("h_match_indices", h_match_indices)
                 print("o_match_indices", o_match_indices)
                 print("len(h_match_indices)", len(h_match_indices))
                 print("len(o_match_indices)", len(o_match_indices))
-                import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
+                # 空のテンソルで初期化
+                h_match_indices = torch.empty((0, 2), dtype=torch.long, device=h_match_indices.device)
+                o_match_indices = torch.empty((0, 2), dtype=torch.long, device=o_match_indices.device)
 
-            if self.task == 'ASOD' and len(h_match_indices) != len(so_match_indices):
+            if self.task == 'ASOD' and (len(h_match_indices) != len(so_match_indices) or (len(h_match_indices) != len(o_match_indices)) or (len(o_match_indices) != len(so_match_indices))):
+                print("batch_idx", batch_idx)
+                print("target", targets)
+                print("outputs", outputs)
                 print("h_match_indices", h_match_indices)
                 print("so_match_indices", so_match_indices)
                 print("len(h_match_indices)", len(h_match_indices))
                 print("len(so_match_indices)", len(so_match_indices))
-                import pdb; pdb.set_trace()
+                # import pdb; pdb.set_trace()
+                # 空のテンソルで初期化
+                h_match_indices = torch.empty((0, 2), dtype=torch.long, device=h_match_indices.device)
+                o_match_indices = torch.empty((0, 2), dtype=torch.long, device=o_match_indices.device)
+                so_match_indices = torch.empty((0, 2), dtype=torch.long, device=so_match_indices.device)
+
 
             for idx in range(len(h_match_indices)):
                 h_match_idx = h_match_indices[idx]

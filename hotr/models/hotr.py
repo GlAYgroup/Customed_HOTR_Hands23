@@ -57,6 +57,7 @@ class HOTR(nn.Module):
             self.hand_pose_mlp = MLP(42, hidden_dim, hidden_dim, 3)
             # concat後の (hidden_dim*2) を hidden_dim に戻すためのプロジェクション層
             self.hand_pose_proj_0 = nn.Linear(hidden_dim*2, hidden_dim)
+            # self.hand_pose_proj_0 = MLP(hidden_dim*2, hidden_dim, hidden_dim, 3)
         if self.hand_pose == 'add_in_d_1':
             self.hand_pose_proj_1 = MLP(hidden_dim+42, hidden_dim, hidden_dim, 3)
         # --------------------------------------------------------------------
@@ -156,19 +157,20 @@ class HOTR(nn.Module):
                     # dummy_feats = dummy_feats.expand(self.num_queries, -1) # (num_queries, hidden_dim)
                     # hp_feats = dummy_feats if hp_feats is None else hp_feats
 
-                hand_queries_batch.append(hp_feats.unsqueeze(0))  # (1, num_queries, hidden_dim)
+                hand_queries_batch.append(hp_feats.unsqueeze(0))  # (1, num_queries, hidden_dim) or (1, num_queries, 42)
 
             hand_query_stack = torch.cat(hand_queries_batch, dim=0) # (bs, num_queries, hidden_dim)
-            base_query = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1) # (bs, num_queries, hidden_dim)
+            base_query = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1) # (bs, num_queries, hidden_dim) or (bs, num_queries, 42)
 
             # concatでpositional embeddingと手の特徴を結合
             # concat: (bs, num_queries, hidden_dim) + (bs, num_queries, hidden_dim)
             # → (bs, num_queries, hidden_dim*2)
             query_concat = torch.cat([base_query, hand_query_stack], dim=2)
 
-            # MLP(Linear)で (hidden_dim*2) → hidden_dim に戻す
+            # Linearで (hidden_dim*2) → hidden_dim に戻す
             if self.hand_pose == 'add_in_d_0':
                 query_embed = self.hand_pose_proj_0(query_concat) # (bs, num_queries, hidden_dim)
+            # MLPで (hidden_dim+42) → hidden_dim に戻す
             elif self.hand_pose == 'add_in_d_1':
                 query_embed = self.hand_pose_proj_1(query_concat)
         else:

@@ -145,6 +145,7 @@ class handsDetection(Dataset):
         pair_action = [] #contact_state
         pair_target = []
         pair_so_target = []
+        ann_id = []
 
         #for hand pose
         if  self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1':
@@ -167,6 +168,9 @@ class handsDetection(Dataset):
             # print('new_inst_action', new_inst_action)
             new_inst_action[side_annotation["contact_state"]] = 1
             inst_action.append(new_inst_action)
+
+            if "ann_id" in side_annotation:
+                ann_id.append(side_annotation["ann_id"])
 
             if  (self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1') and "pred_2d_keypoints" in side_annotation:
                 hand_bboxes.append(new_hand_bbox)
@@ -246,7 +250,7 @@ class handsDetection(Dataset):
             hand_bboxes = np.array(hand_bboxes)
             hand_2d_key_points = np.array(hand_2d_key_points)
             hand_kp_confidence = np.array(hand_kp_confidence)
-            return inst_bbox, inst_category, inst_action, pair_bbox, pair_action, pair_target, pair_so_target, hand_bboxes, hand_2d_key_points, hand_kp_confidence
+            return inst_bbox, inst_category, inst_action, pair_bbox, pair_action, pair_target, pair_so_target, hand_bboxes, hand_2d_key_points, hand_kp_confidence, ann_id
         else:
             return inst_bbox, inst_category, inst_action, pair_bbox, pair_action, pair_target, pair_so_target
 
@@ -400,6 +404,7 @@ class handsDetection(Dataset):
         img, target = self.prepare_img(idx)
         # print('=================START===============')
         # print('image_info:', self.img_infos[idx])
+        # print('idx:', idx)
         # print("/large/maeda/HOTR/hotr/data/datasets/doh.py target: ")
         # print(target)
         # print('=================END=================')
@@ -428,7 +433,7 @@ class handsDetection(Dataset):
             inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets = self.load_instance_pair_annotations(img_idx)
         elif self.task == 'ASOD':
             if self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1':
-                inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets, hand_bboxes, hand_2d_key_points, hand_kp_confidence = self.load_instance_triplet_annotations(img_idx)
+                inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets, hand_bboxes, hand_2d_key_points, hand_kp_confidence, ann_id = self.load_instance_triplet_annotations(img_idx)
             else:
                 inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets = self.load_instance_triplet_annotations(img_idx)
         else:
@@ -452,6 +457,7 @@ class handsDetection(Dataset):
                 sample['hand_bboxes'] = torch.as_tensor(hand_bboxes, dtype=torch.float32)
                 sample['hand_2d_key_points'] = torch.as_tensor(hand_2d_key_points, dtype=torch.float32)
                 sample['hand_kp_confidence'] = torch.as_tensor(hand_kp_confidence, dtype=torch.float32)
+                sample['ann_id'] = torch.tensor(ann_id, dtype=torch.int64)
                     
 
         # print('sample', sample)
@@ -545,12 +551,13 @@ def build(image_set, args):
     part_del = 'excl_nohand_'
     second_only = '2nd_only_'
     hand_kp = 'w_2dkp_'
+    id = 'id_'
     
     assert root.exists(), f'provided Hands23 path {root} does not exist'
     PATHS = {
-            "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'train.json')),
-            "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'val.json')),
-            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'test.json')),
+            "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (id + part_del + hand_kp + 'train.json')),
+            "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (id + part_del + hand_kp + 'val.json')),
+            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (id + part_del + hand_kp + 'test.json')),
         }
     
     # PATHS = {
@@ -567,7 +574,7 @@ def build(image_set, args):
         PATHS = {
             "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'train.json')),
             "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'val.json')),
-            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'test.json')),
+            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (second_only + part_del + 'test.json')),
         }
     img_folder, ann_file = PATHS[image_set]
     print('Annotation path is', ann_file)

@@ -340,7 +340,50 @@ def main(args):
                 args.resume, map_location='cpu', check_hash=True)
         else:
             checkpoint = torch.load(args.resume, map_location='cpu')
-        model_without_ddp.load_state_dict(checkpoint['model'])
+        # model_without_ddp.load_state_dict(checkpoint['model'])
+
+        # ロード前に現在のモデルパラメータを取得
+        model_dict_before = model_without_ddp.state_dict()
+
+        # checkpointにあるパラメータキーとモデルにあるパラメータキーを取得
+        ckpt_keys = set(checkpoint['model'].keys())
+        model_keys = set(model_without_ddp.state_dict().keys())
+
+        # 差分表示
+        missing_in_ckpt = model_keys - ckpt_keys
+        missing_in_model = ckpt_keys - model_keys
+        
+        if missing_in_ckpt:
+            print("[DEBUG] Parameters missing in checkpoint (found in model, not in checkpoint):")
+            for k in sorted(missing_in_ckpt):
+                print("   ", k)
+
+        if missing_in_model:
+            print("[DEBUG] Parameters missing in model (found in checkpoint, not in model):")
+            for k in sorted(missing_in_model):
+                print("   ", k)
+        
+        # 形状の比較
+        for k in (model_keys & ckpt_keys):
+            ckpt_shape = checkpoint['model'][k].shape
+            model_shape = model_without_ddp.state_dict()[k].shape
+            if ckpt_shape != model_shape:
+                print(f"[DEBUG] Shape mismatch for {k}: ckpt{ckpt_shape} vs model{model_shape}")
+
+        # 実際にロード
+        model_without_ddp.load_state_dict(checkpoint['model'], strict=False)
+        print("[DEBUG] Resume checkpoint loaded.")
+
+        # forwardフックの例（必要な場合のみ使用）
+        # 全ての子モジュールに対してforwardフックを仕掛けて、forwardが呼ばれた際に出力を表示する
+        # これにより、どのモジュールが実行されたか確認できます。
+        def forward_hook(module, input, output):
+            print(f"[FORWARD DEBUG] Executed module: {module.__class__.__name__}")
+
+        # フックを仕掛ける（必要に応じてコメントアウトを外して使用）
+        # for name, module in model_without_ddp.named_modules():
+        #     if len(list(module.children())) == 0:  # 末端モジュールにフック
+        #         module.register_forward_hook(forward_hook)
 
 
     # Evaluation
