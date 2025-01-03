@@ -50,7 +50,7 @@ class HOTR(nn.Module):
         # Second Object用のFFNを追加（taskが'ASOD'のときのみ）
         if self.task == 'ASOD':
             self.SO_Pointer_embed = MLP(hidden_dim, hidden_dim, hidden_dim, 3)
-
+        
         # * Hand pose Options for adding Interaction Query -------------------
         if self.hand_pose == 'add_in_d_0':
             # 21点 * 2座標 = 42次元をhidden_dimへ射影するMLP
@@ -58,8 +58,13 @@ class HOTR(nn.Module):
             # concat後の (hidden_dim*2) を hidden_dim に戻すためのプロジェクション層
             self.hand_pose_proj_0 = nn.Linear(hidden_dim*2, hidden_dim)
             # self.hand_pose_proj_0 = MLP(hidden_dim*2, hidden_dim, hidden_dim, 3)
-        if self.hand_pose == 'add_in_d_1':
+        elif self.hand_pose == 'add_in_d_1':
             self.hand_pose_proj_1 = MLP(hidden_dim+42, hidden_dim, hidden_dim, 3)
+        elif self.hand_pose == 'add_in_d_2':
+            # 21点 * 2座標 = 42次元をhidden_dimへ射影するMLP
+            self.hand_pose_mlp = MLP(42, hidden_dim, hidden_dim, 3)
+            self.num_hp_query = 4
+
         # --------------------------------------------------------------------
 
         # * HICO-DET FFN heads ---------------------------------------------
@@ -161,11 +166,14 @@ class HOTR(nn.Module):
 
             hand_query_stack = torch.cat(hand_queries_batch, dim=0) # (bs, num_queries, hidden_dim)
             base_query = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1) # (bs, num_queries, hidden_dim) or (bs, num_queries, 42)
+            print('base_query.shape:', base_query.shape)
+            print('hand_query_stack.shape:', hand_query_stack.shape)
 
             # concatでpositional embeddingと手の特徴を結合
             # concat: (bs, num_queries, hidden_dim) + (bs, num_queries, hidden_dim)
             # → (bs, num_queries, hidden_dim*2)
             query_concat = torch.cat([base_query, hand_query_stack], dim=2)
+            print('query_concat.shape:', query_concat.shape)
 
             # Linearで (hidden_dim*2) → hidden_dim に戻す
             if self.hand_pose == 'add_in_d_0':
@@ -173,11 +181,54 @@ class HOTR(nn.Module):
             # MLPで (hidden_dim+42) → hidden_dim に戻す
             elif self.hand_pose == 'add_in_d_1':
                 query_embed = self.hand_pose_proj_1(query_concat)
+        elif self.hand_pose == 'add_in_d_2' and targets is not None:
+            hand_queries_batch = []
+            hidden_dim = inst_repr.shape[-1]
+
+            for tgt in targets:
+                if "hand_2d_key_points" in tgt and tgt["hand_2d_key_points"].numel() > 0:
+                    kp = tgt["hand_2d_key_points"]        # (N_hand, 21, 2)
+                    conf = tgt["hand_kp_confidence"]      # (N_hand,)
+
+                    # (N_hand, 21, 2) -> (N_hand, 42)
+                    N_hand = kp.shape[0]
+                    kp_flat = kp.view(N_hand, 42)
+
+                    # キーポイントをhidden_dimへ射影
+                    hp_feats = self.hand_pose_mlp(kp_flat) # (N_hand, hidden_dim)
+
+                    # confidence順に並び替え
+                    sorted_idx = conf.argsort(descending=True)
+                    hp_feats = hp_feats[sorted_idx]
+
+                    # num_queriesと比較し切り取りまたはパディング
+                    if hp_feats.shape[0] > self.num_hp_query:
+                        hp_feats = hp_feats[:self.num_hp_query]
+                    elif hp_feats.shape[0] < self.num_hp_query:
+                        pad_len = self.num_hp_query - hp_feats.shape[0]
+                        pad = torch.zeros(pad_len, hidden_dim, device=hp_feats.device)
+                   
+                        hp_feats = torch.cat([hp_feats, pad], dim=0)
+                else:
+                    # キーポイントがない場合は全て0でパディング
+                    hp_feats = torch.zeros(self.num_hp_query, hidden_dim, device=src.device)
+                 
+
+                hand_queries_batch.append(hp_feats.unsqueeze(0))  # (1, num_queries, hidden_dim)
+
+            hand_query_stack = torch.cat(hand_queries_batch, dim=0) # (bs, num_queries, hidden_dim)
+            base_query = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1) # (bs, num_queries, hidden_dim) or (bs, num_queries, 42)
+           
+            query_embed = torch.cat([base_query, hand_query_stack], dim=1)
+
         else:
-            query_embed = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1)        
+            query_embed = self.query_embed.weight.unsqueeze(0).repeat(bs, 1, 1)
 
         # interaction_hs = self.interaction_transformer(self.detr.input_proj(src), mask, self.query_embed.weight, pos[-1])[0] # interaction representations
         interaction_hs = self.interaction_transformer(self.detr.input_proj(src), mask, query_embed, pos[-1])[0] # interaction representations
+        interaction_hs = interaction_hs[:, :, :self.num_queries, :]  # handposeクエリを消去
+
+
 
         # [HO Pointers]
         H_Pointer_reprs = F.normalize(self.H_Pointer_embed(interaction_hs), p=2, dim=-1)

@@ -1,19 +1,17 @@
 #Hands23
 hands23_multi_train:
-	CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch \
-		--nproc_per_node=4 \
+	CUDA_VISIBLE_DEVICES=1,2,3 python -m torch.distributed.launch \
+		--nproc_per_node=3 \
 		--use_env main.py \
 		--task ASOD \
 		--group_name SatoLab_HOTR \
-		--run_name hands23_multi_hand_run_000013 \
+		--run_name hands23_multi_hand_run_000014 \
 		--batch_size 4 \
 		--HOIDet \
 		--wandb \
 		--validate \
 		--share_enc \
 		--pretrained_dec \
-		--lr 1e-4 \
-		--lr_drop 80 \
 		--epochs 100 \
 		--num_hoi_queries 6 \
 		--set_cost_idx 10 \
@@ -30,7 +28,7 @@ hands23_multi_train:
 		--frozen_weights resume/hands23/gpu_hands23_multi_hand_run_000001/checkpoint0299.pth \
 		--data_path hands23 \
 		--output_dir checkpoints/hands23/ \
-		--hand_pose add_in_d_0 \
+		--hand_pose add_in_d_1 \
 
 hands23_multi_train_resume:
 	CUDA_VISIBLE_DEVICES=0,1,2,3 python -m torch.distributed.launch \
@@ -93,20 +91,21 @@ hands23_single_train:
 		--frozen_weights resume/hands23/gpu_hands23_multi_hand_run_000001/checkpoint0299.pth \
 		--data_path hands23  \
 		--output_dir checkpoints/hands23 \
-		--hand_pose add_in_d_1 \
+		--hand_pose add_in_d_2 \
 
 
 hands23_single_train_resume:
 	python main.py \
 		--task ASOD \
 		--group_name SatoLab_HOTR \
-		--run_name hands23_single_hand_run_000004_resume_101 \
+		--run_name gpu_hands23_multi_hand_run_000009_resume_xx \
 		--HOIDet \
 		--validate \
 		--share_enc \
 		--pretrained_dec \
 		--lr 1e-4 \
-		--epochs 300 \
+		--batch_size 4 \
+		--epochs 100 \
 		--num_hoi_queries 6 \
 		--set_cost_idx 10 \
 		--set_cost_soidx 10 \
@@ -121,8 +120,8 @@ hands23_single_train_resume:
 		--dataset_file hands23 \
 		--data_path hands23  \
 		--output_dir checkpoints/hands23/ \
-		--start_epoch 100 \
-		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000004/checkpoints/checkpoint0099.pth
+		--start_epoch 27 \
+		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000009/checkpoints/checkpoint0026.pth \
 		--hand_pose add_in_d_0 \
 
 #start_epochはresumeのepoch+1
@@ -132,7 +131,7 @@ hands23_single_train_check:
 		--task ASOD \
 		--group_name SatoLab_HOTR \
 		--run_name hands23_single_hand_run_000013 \
-		--batch_size 4 \
+		--batch_size 2 \
 		--HOIDet \
 		--validate \
 		--share_enc \
@@ -156,15 +155,15 @@ hands23_single_train_check:
 		--output_dir checkpoints/check/hands23 \
 		--check True \
 		--check_num_images 30 \
-		--hand_pose add_in_d_0 \
+		--hand_pose add_in_d_2 \
 
 
 	   
 hands23_single_test:
 	python main.py \
 		--task ASOD \
-		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000004/best_second.pth \
-		--run_name gpu_hands23_multi_hand_run_000004/best_second/full_second_only \
+		--resume checkpoints/hands23/SatoLab_HOTR/gpu_hands23_multi_hand_run_000012/best_second.pth \
+		--run_name gpu_hands23_multi_hand_run_000012/result/best_second/full \
 		--root hands23/hands23_data/allMergedBlur \
 		--vis_mode unique_obj \
 		--group_name SatoLab_HOTR \
@@ -181,8 +180,9 @@ hands23_single_test:
 		--dataset_file hands23 \
 		--data_path hands23 \
 		--output_dir checkpoints/hands23 \
+        --vis \
+		--hand_pose add_in_d_1
 
-#      --vis
 
 # frozen_weightsを変更する必要あり
 hands23_single_test_check:

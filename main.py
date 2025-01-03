@@ -352,6 +352,7 @@ def main(args):
         # 差分表示
         missing_in_ckpt = model_keys - ckpt_keys
         missing_in_model = ckpt_keys - model_keys
+
         
         if missing_in_ckpt:
             print("[DEBUG] Parameters missing in checkpoint (found in model, not in checkpoint):")

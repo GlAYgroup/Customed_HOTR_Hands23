@@ -517,7 +517,7 @@ def get_AP_single(
         bboxs, _ = remove_zero_boxes_and_scores(bboxs, np.zeros(bboxs.shape[0]))  # ボックスのみフィルタ
         npos += bboxs.shape[0]
         img_recs[i] = {'bbox': bboxs}
-
+    
     # 予測の収集とスコアによるフィルタリング
     bbox_recs = []
     bbox_confidences = []

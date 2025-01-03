@@ -148,7 +148,7 @@ class handsDetection(Dataset):
         ann_id = []
 
         #for hand pose
-        if  self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1':
+        if  self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1' or self.hand_pose == 'add_in_d_2':
             hand_bboxes = []
             hand_2d_key_points = []
             hand_kp_confidence = []
@@ -172,7 +172,7 @@ class handsDetection(Dataset):
             if "ann_id" in side_annotation:
                 ann_id.append(side_annotation["ann_id"])
 
-            if  (self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1') and "pred_2d_keypoints" in side_annotation:
+            if  (self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1' or self.hand_pose == 'add_in_d_2') and "pred_2d_keypoints" in side_annotation:
                 hand_bboxes.append(new_hand_bbox)
                 hand_2d_key_points.append(side_annotation["pred_2d_keypoints"])
                 hand_kp_confidence.append(side_annotation["pred_confidence"])
@@ -246,7 +246,7 @@ class handsDetection(Dataset):
         pair_action = np.array(pair_action)
         pair_target = np.array(pair_target)
         pair_so_target = np.array(pair_so_target)
-        if self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1':
+        if self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1' or self.hand_pose == 'add_in_d_2':
             hand_bboxes = np.array(hand_bboxes)
             hand_2d_key_points = np.array(hand_2d_key_points)
             hand_kp_confidence = np.array(hand_kp_confidence)
@@ -432,7 +432,7 @@ class handsDetection(Dataset):
         if self.task == 'AOD':#ひとまずhand poseのフラグはADOには追加していない
             inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets = self.load_instance_pair_annotations(img_idx)
         elif self.task == 'ASOD':
-            if self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1':
+            if self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1' or self.hand_pose == 'add_in_d_2':
                 inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets, hand_bboxes, hand_2d_key_points, hand_kp_confidence, ann_id = self.load_instance_triplet_annotations(img_idx)
             else:
                 inst_bbox, inst_label, inst_actions, pair_bbox, pair_actions, pair_targets, pair_so_targets = self.load_instance_triplet_annotations(img_idx)
@@ -452,7 +452,7 @@ class handsDetection(Dataset):
         if self.task == 'ASOD':
             sample['triplet_targets'] = torch.tensor(pair_so_targets, dtype=torch.int64)
 
-        if self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1':
+        if self.hand_pose == 'add_in_d_0' or self.hand_pose == 'add_in_d_1' or self.hand_pose == 'add_in_d_2':
             if hand_bboxes is not None and len(hand_bboxes) > 0:
                 sample['hand_bboxes'] = torch.as_tensor(hand_bboxes, dtype=torch.float32)
                 sample['hand_2d_key_points'] = torch.as_tensor(hand_2d_key_points, dtype=torch.float32)
@@ -552,12 +552,13 @@ def build(image_set, args):
     second_only = '2nd_only_'
     hand_kp = 'w_2dkp_'
     id = 'id_'
+    # order id->second_only->part_del->hand_kp 
     
     assert root.exists(), f'provided Hands23 path {root} does not exist'
     PATHS = {
             "train": (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (id + part_del + hand_kp + 'train.json')),
             "val"  : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (id + part_del + hand_kp + 'val.json')),
-            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (id + part_del + hand_kp + 'test.json')),
+            "test" : (root / 'hands23_data' / 'allMergedBlur', root / 'hands23_data' / 'doh_format_dataset' / (part_del + hand_kp + 'test.json')),
         }
     
     # PATHS = {

@@ -15,7 +15,7 @@ import hotr.util.logger as loggers
 from hotr.data.evaluators.doh_eval import DohEvaluator
 import hotr.metrics.utils as metrics_utils
 
-from hotr.util.box_ops import rescale_bboxes, rescale_pairs, rescale_triplet
+from hotr.util.box_ops import rescale_bboxes, rescale_pairs, rescale_triplet, rescale_hand_pose
 
 import wandb
 
@@ -26,6 +26,43 @@ import numpy as np
 import shutil
 import json
 
+# 2D手のキーポイントの接続関係 (各指や手首～指先まで)
+SKELETON = [
+    (0, 1), (1, 2), (2, 3), (3, 4),        # Thumb
+    (0, 5), (5, 6), (6, 7), (7, 8),        # Index
+    (0, 9), (9, 10), (10, 11), (11, 12),   # Middle
+    (0, 13), (13, 14), (14, 15), (15, 16), # Ring
+    (0, 17), (17, 18), (18, 19), (19, 20), # Pinky
+]
+
+SKELETON_COLOR = (0, 255, 0)      # スケルトンラインの色（例：緑）
+SKELETON_THICKNESS = 2
+KEYPOINT_RADIUS = 3
+KEYPOINT_THICKNESS = -1
+
+def draw_hand_pose(image, keypoints, color=(255, 0, 0), draw_skeleton=True):
+    """
+    画像に手のキーポイントを描画し、オプションでスケルトンラインも描画する。
+      - keypoints: [(x1, y1), (x2, y2), ..., (x21, y21)] のような形式を想定
+      - color: キーポイントの色
+      - draw_skeleton: True なら SKELETON で定義されたラインも描画する
+    """
+    if draw_skeleton:
+        for start, end in SKELETON:
+            if start >= len(keypoints) or end >= len(keypoints):
+                continue
+            x1, y1 = int(keypoints[start][0]), int(keypoints[start][1])
+            x2, y2 = int(keypoints[end][0]), int(keypoints[end][1])
+            cv2.line(image, (x1, y1), (x2, y2), SKELETON_COLOR, SKELETON_THICKNESS)
+
+    # キーポイント描画
+    for kp in keypoints:
+        if len(kp) < 2:
+            continue  # 不正なキーポイントはスキップ
+        x, y = int(kp[0]), int(kp[1])
+        cv2.circle(image, (x, y), KEYPOINT_RADIUS, color, KEYPOINT_THICKNESS)
+
+    return image
 
 #test結果の集約
 @torch.no_grad()
@@ -157,6 +194,19 @@ def doh_visualizer(args, total_res, dataset):
             elif args.task == 'ASOD':
                 image = draw_GT_bbox_triplet(image, pair_bbox, label_colors, thickness)
         
+        # target 内に "hand_pose" などのキーがあると仮定
+        if 'hand_2d_key_points' in target:
+            for hand_kp in target['hand_2d_key_points']:
+                # draw_hand_pose関数を呼び出す
+                image = draw_hand_pose(
+                    image, 
+                    hand_kp, 
+                    color=(255, 0, 0),     # 手キーポイントの色: 青系
+                    draw_skeleton=True     # スケルトンラインを描画
+                )
+        else:
+            print(f"画像にキーポイントがありません: {img_info}")
+        
         # 保存先のパスを生成
         basename = os.path.basename(img_info)
         save_path = os.path.join(GT_output_dir, 'GT_' + basename)
@@ -251,7 +301,9 @@ def doh_visualizer(args, total_res, dataset):
                         elif o_cat_score >= obj_thr and target['o_cat_label'][max_index] == 2:
                             image = draw_bbox_pair(image, target, label_colors, max_index, thickness)
                         else:
-                            image = draw_hand_bbox(image, target, label_colors, max_index, thickness)        
+                            image = draw_hand_bbox(image, target, label_colors, max_index, thickness)
+
+
         # 保存先のパスを生成
         basename = os.path.basename(img_info)
         save_path = os.path.join(pred_output_dir, 'Pred_' + basename)
@@ -456,24 +508,24 @@ def doh_accumulate(total_res, args, print_results, wandb_log):
         if args.task == 'ASOD':
             gt_sobj_boxes.append(pre_gt_sobj_boxes)
 
-    # 引数のデータを準備
-    args_dict = {
-        "doh100_hand_boxes": any_to_list(doh100_hand_boxes),
-        "doh100_hand_scores": any_to_list(doh100_hand_scores),
-        "pred_obj_boxes": any_to_list(pred_obj_boxes),
-        "pred_obj_scores": any_to_list(pred_obj_scores),
-        "pred_sobj_boxes": any_to_list(pred_sobj_boxes),
-        "pred_sobj_scores": any_to_list(pred_sobj_scores),
-        "pred_confidence_scores": any_to_list(pred_confidence_scores),
-        "gt_hand_boxes": any_to_list(gt_hand_boxes),
-        "gt_obj_boxes": any_to_list(gt_obj_boxes),
-        "gt_sobj_boxes": any_to_list(gt_sobj_boxes),
-        # "iou_thres": [0.75, 0.5, 0.25]
-    }
-    # JSONファイルに保存
-    with open('maeda/outputs/get_ap_ho_args.json', 'w') as f:
-        json.dump(args_dict, f, indent=4)
-    print("get_ap_ho_args.json is saved")
+    # # 引数のデータを準備
+    # args_dict = {
+    #     "doh100_hand_boxes": any_to_list(doh100_hand_boxes),
+    #     "doh100_hand_scores": any_to_list(doh100_hand_scores),
+    #     "pred_obj_boxes": any_to_list(pred_obj_boxes),
+    #     "pred_obj_scores": any_to_list(pred_obj_scores),
+    #     "pred_sobj_boxes": any_to_list(pred_sobj_boxes),
+    #     "pred_sobj_scores": any_to_list(pred_sobj_scores),
+    #     "pred_confidence_scores": any_to_list(pred_confidence_scores),
+    #     "gt_hand_boxes": any_to_list(gt_hand_boxes),
+    #     "gt_obj_boxes": any_to_list(gt_obj_boxes),
+    #     "gt_sobj_boxes": any_to_list(gt_sobj_boxes),
+    #     # "iou_thres": [0.75, 0.5, 0.25]
+    # }
+    # # JSONファイルに保存
+    # with open('maeda/outputs/get_ap_ho_args.json', 'w') as f:
+    #     json.dump(args_dict, f, indent=4)
+    # print("get_ap_ho_args.json is saved")
 
     doh100_hand_boxes = any_to_numpy(doh100_hand_boxes)
     doh100_hand_scores = any_to_numpy(doh100_hand_scores)
@@ -557,6 +609,9 @@ def process_target(targets, target_sizes, args):
             targets[idx]['pair_boxes'] = rescale_pairs(target['pair_boxes'], target_size) # pairs
         elif args.task == 'ASOD':
             targets[idx]['pair_boxes'] = rescale_triplet(target['pair_boxes'], target_size)
+        
+        if args.hand_pose in ('add_in_d_0', 'add_in_d_1', 'add_in_d_2') and 'hand_2d_key_points' in target:
+            targets[idx]['hand_2d_key_points'] = rescale_hand_pose(target['hand_2d_key_points'], target_size)
 
     return targets
 

@@ -136,3 +136,8 @@ def rescale_triplet(out_pairs, size):
     p = torch.cat([h, o, so], dim=-1)
 
     return p
+
+def rescale_hand_pose(out_hp, size):
+    img_h, img_w = size
+    hp = out_hp * torch.tensor([img_w, img_h], dtype=torch.float32).to(out_hp.get_device())
+    return hp

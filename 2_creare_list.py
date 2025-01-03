@@ -32,11 +32,10 @@ for image_name in sorted(data.keys()):
     
     # 画像の幅と高さ（GT内で定義されているので、最初のGTエントリから取得）
     if image_data.get('GT'):
-        width = image_data['GT'][0].get('width', 1280)   # デフォルト値を設定
-        height = image_data['GT'][0].get('height', 720)  # デフォルト値を設定
+        width = image_data['GT'][0].get('width')   # デフォルト値を設定
+        height = image_data['GT'][0].get('height')  # デフォルト値を設定
     else:
-        width = 1280
-        height = 720
+        raise ValueError(f"画像 '{image_name}' にはGTデータがありません。")
 
     # ---- Ground Truth (GT) ----
     gt_hand_boxes_image = []
@@ -107,14 +106,17 @@ for image_name in sorted(data.keys()):
             hand_bbox = [0.0, 0.0, 0.0, 0.0]
         doh100_hand_boxes_image.append(hand_bbox)
         
+        #pred confidence score
+        pred_confidence_score = 0.0
+
         # Hand Prediction Score
         hand_pred_score_str = pred_entry.get('hand_pred_score', "0.0")
         try:
             hand_pred_score = float(hand_pred_score_str)
+            pred_confidence_score = hand_pred_score
         except (ValueError, TypeError):
             hand_pred_score = 0.0
         doh100_hand_scores_image.append(hand_pred_score)
-        pred_confidence_scores_image.append(hand_pred_score)
         
         # Object Bounding Box
         obj_bbox_str = pred_entry.get('obj_bbox', ["0.0", "0.0", "0.0", "0.0"])
@@ -127,13 +129,17 @@ for image_name in sorted(data.keys()):
             obj_bbox = [0.0, 0.0, 0.0, 0.0]
         pred_obj_boxes_image.append(obj_bbox)
         
+        
         # Object Prediction Score
         obj_pred_score_str = pred_entry.get('obj_pred_score', "0.0")
         try:
             obj_pred_score = float(obj_pred_score_str)
+            pred_confidence_score = pred_confidence_score * obj_pred_score
         except (ValueError, TypeError):
             obj_pred_score = 0.0
         pred_obj_scores_image.append(obj_pred_score)
+        
+
         
         # Second Object Bounding Box
         second_obj_bbox_str = pred_entry.get('second_obj_bbox', None)
@@ -152,11 +158,14 @@ for image_name in sorted(data.keys()):
         if sec_obj_pred_score_str and sec_obj_pred_score_str != "None":
             try:
                 sec_obj_pred_score = float(sec_obj_pred_score_str)
+                pred_confidence_score = pred_confidence_score * sec_obj_pred_score
             except (ValueError, TypeError):
                 sec_obj_pred_score = 0.0
         else:
             sec_obj_pred_score = 0.0
         pred_sobj_scores_image.append(sec_obj_pred_score)
+        pred_confidence_scores_image.append(pred_confidence_score)
+        
     
     # 各画像のPredictionボックスをリストに追加
     doh100_hand_boxes.append(doh100_hand_boxes_image)  # リストのリスト
